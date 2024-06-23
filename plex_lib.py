@@ -99,6 +99,18 @@ class PlexMusic:
             self._tracks = response.json()['MediaContainer']['Metadata']
         return self._tracks
 
+    def get_track(self, rating_key: str) -> Track:
+        """Retrieves a plexapi.audio.Track object using its rating key.
+
+        Args:
+            rating_key (str): The rating key of the track.
+
+        Returns:
+            Track: The Track object if found, otherwise raises an exception. 
+        """
+        return self.music.fetchItem(f'/library/metadata/{rating_key}')
+
+
     def get_recently_rated_tracks(self, limit: int = 100) -> List[Dict]:
         """Filters and sorts cached track metadata by lastRatedAt.
 
@@ -130,7 +142,7 @@ class PlexMusic:
 
     def display_tracks(self, tracks: List[Track] | List[Dict], show_details: bool = False):
         """Displays information about tracks (dictionaries or Track objects)."""
-        for i, track in enumerate(tracks):
+        for i, track in enumerate(tracks, start=1):
             if isinstance(track, Track):
                 track = self.track_to_dict(track)
 
@@ -160,7 +172,7 @@ class PlexMusic:
 
     def display_playlists(self):
         """Displays information about cached playlists using plexapi."""
-        for i, playlist in enumerate(self.get_playlists()):
+        for i, playlist in enumerate(self.get_playlists(), start=1):
             print(
                 f"Playlist {i}: '{playlist.title}', Entries: {playlist.leafCount}, "
                 f"Updated: {self.time_ago_in_days(playlist.updatedAt.timestamp())} days ago"

@@ -45,6 +45,7 @@ MULTIPLE_OK = [
     "b:\\seed_archive\\music_library\\skinshape - umoja (2020) - web flac\\",
     "b:\\seed_archive\\music_library\\santana - supernatural (1999) (07822-19080-2) [cd flac]\\",
     "b:\\seed_archive\\music_library\\django reinhardt - djangology (2002) {bluebird 09026-63957-2} [flac-cd]\\",
+    "b:\\seed_archive\\\music_library\\\jean michel jarre\\"
     "b:\\seed_archive\\music_library\\nosaj thing - continua (2022) - web flac\\",
     "b:\\seed_archive\\music_library\\nicolas jaar - pomegranates (2015) web flac\\",
     "b:\\seed_archive\\music_library\\nicolas jaar - cenizas (2020) [web flac]\\",
@@ -53,10 +54,12 @@ MULTIPLE_OK = [
     "b:\\seed_archive\\music_library\\various artists - late night tales khruangbin (2020) - web flac\\",
     "b:\\seed_archive\\music_library\\fleet foxes - crack-up (2017) [flac]\\",
     "b:\\seed_archive\\music_library\\plat - compulsion (2005) - de-emphasized flac\\",
+    "b:\\seed_archive\\music_lossy\\luc ferrari - presque rien [lame mp3 (vbr-new quality 0.0)]\\",
     "b:\\seed_archive\\music\\dauwd - 2013 - heat division remixes [flac]\\",
     "b:\\seed_archive\\music\\l'imperatrice - tako tsubo (2021) - web flac\\",
     "b:\\seed_archive\\music\\ (parannoul) - 2021 - to see the next part of the dream [web flac]\\",
     "b:\\seed_archive\\music\\helado negro - far in (2021) - web flac\\",
+    "b:\\seed_archive\\music\\janelle monae - the archandroid\\",
 ]
 
 
@@ -65,6 +68,7 @@ NUC_PC_PREFIX_MAP = {
     '\\hdd\\seed_archive\\': 'B:\\seed_archive\\',
     '\\mnt\\music\\': 'D:\\Music\\',
 }
+
 
 def convert_nuc_to_pc_path(nuc_path, prefix_map=NUC_PC_PREFIX_MAP):
     """Converts a NUC path to a PC path using a prefix map."""
@@ -142,8 +146,11 @@ if __name__ == "__main__":
           matching_rows = mb_tracks[mb_tracks['Path_Norm'] == pc_filepath]
           if len(matching_rows) > 1:
               if not any(pc_filepath.startswith(ok_path) for ok_path in MULTIPLE_OK):
-                  print(f'Warning: Multiple matches (taking first) for',
-                        f'{pc_filepath}:\n{matching_rows["fuzzy_track_id"]}\n')
+                  try:
+                    print(f'Warning: Multiple matches (taking first) for',
+                          f'{pc_filepath}:\n{matching_rows["fuzzy_track_id"]}\n')
+                  except Exception as e:
+                      print(f'Error on multiple match warning...\n{e}')
                   match_counters['Multiple Matches'] += 1
           match_counters['Match Found'] += 1
           mb_track_row = matching_rows.iloc[0]
@@ -195,19 +202,19 @@ if __name__ == "__main__":
   for name, count in counters.items():
       print(f"{name}: {count}")
 
-  print(f"\nSaving Map and Counters to {CACHE_FOLDER}")
-  uni.save_dict_to_file(
-      plex_mb_map,
-      os.path.join(CACHE_FOLDER, f'plex_musicbeemap.tsv'),
-  )
-  uni.save_dict_to_file(
-      dict(match_counters),
-      os.path.join(CACHE_FOLDER, f'plex_musicbee_match_counters_{DATE}.tsv'),
-  )
-  uni.save_dict_to_file(
-      dict(counters),
-      os.path.join(
-          CACHE_FOLDER, f'plex_rating_from_musicbee_counters_{DATE}.tsv'),
-  )
+  # print(f"\nSaving Map and Counters to {CACHE_FOLDER}")
+  # # uni.save_dict_to_file(
+  # #     plex_mb_map,
+  # #     os.path.join(CACHE_FOLDER, f'plex_musicbee_map.tsv'),
+  # # )
+  # uni.save_dict_to_file(
+  #     dict(match_counters),
+  #     os.path.join(CACHE_FOLDER, f'plex_musicbee_match_counters_{DATE}.tsv'),
+  # )
+  # uni.save_dict_to_file(
+  #     dict(counters),
+  #     os.path.join(
+  #         CACHE_FOLDER, f'plex_rating_from_musicbee_counters_{DATE}.tsv'),
+  # )
 
   print(f'\nFinished in {(time.time() - t0)/60:0.1f} minutes')

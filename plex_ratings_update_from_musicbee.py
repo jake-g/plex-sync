@@ -121,7 +121,7 @@ if __name__ == "__main__":
       print(f"Tracks from '{playlist_name}' Playlist (showing {N_RECENT}):")
       plex_music.display_tracks(playlist_tracks[:N_RECENT], show_details=True)
 
-  print('\nInitializing Music Bee Database...')
+  print('\nInitializing Music Bee Database...', flush=True)
   # Load Tracks to Rate
   mb_tracks = uni.ingest_musicbee_db_assets(MB_LIB, MB_INBOX, save_tsv=False)
   mb_tracks['Path_Norm'] = mb_tracks['Path'].apply(uni.slugify)
@@ -132,7 +132,7 @@ if __name__ == "__main__":
         f'({len(mb_tracks_rated)/len(mb_tracks):0.1%}) are rated')
   mb_tracks_rated.info()
 
-  print('\nMatch MusicBee and Plex Entries...')
+  print('\nMatch MusicBee and Plex Entries...', flush=True)
   plex_track_map = create_plex_track_map(plex_music.get_tracks())
   # Normalize paths in mb_tracks
   mb_paths_norm = set(mb_tracks['Path_Norm'])
@@ -158,19 +158,19 @@ if __name__ == "__main__":
       else:
           match_counters['No Matches'] += 1
           if ignore_match_path not in pc_filepath:
-              print(f'Warning: No matches for {pc_filepath}')
+              print(f'Warning: No matches for {pc_filepath}', flush=True)
 
   print("Match Counts:")
   for name, count in match_counters.items():
       print(f"{name}: {count}")
 
-  print('\nUpdate Plex Rating from MusicBee Rating...')
+  print('\nUpdate Plex Rating from MusicBee Rating...', flush=True)
   rated_tracks = []
   counters = defaultdict(int)
   mb_paths_rated = set(mb_tracks_rated['Path_Norm'])
   for i, (pc_filepath, plex_track_data) in enumerate(plex_track_map_norm.items(), start=1):
       if i % PLEX_SYNC_LOG_EVERY == 0:
-          print(f'{i/len(plex_track_map_norm):0.0%}', end='...')
+          print(f'{i/len(plex_track_map_norm):0.0%}', end='...', flush=True)
       if pc_filepath not in mb_paths_rated:
           counters['plex_track_not_in_mb_rated'] += 1
           continue
@@ -191,8 +191,8 @@ if __name__ == "__main__":
           track.rate(new_plex_rating)
           time.sleep(PLEX_SLEEP_TIME_S)
           if VERBOSE:
-              print(f"Updating rating from {cur_plex_rating} to {
-                    new_plex_rating} for {pc_filepath}")
+              print(f"Updating rating from {cur_plex_rating} to",
+                    f"{new_plex_rating} for {pc_filepath}")
           if cur_plex_rating != None:
               counters['plex_track_rating_updated'] += 1
           else:
@@ -217,4 +217,4 @@ if __name__ == "__main__":
   #         CACHE_FOLDER, f'plex_rating_from_musicbee_counters_{DATE}.tsv'),
   # )
 
-  print(f'\nFinished in {(time.time() - t0)/60:0.1f} minutes')
+  print(f'\nFinished in {(time.time() - t0)/60:0.1f} minutes', flush=True)

@@ -168,7 +168,11 @@ class PlexMusic:
                     track_info += f", {view_count} plays"
                 track_info += f", {codec}]"
 
-            print(track_info)
+            try:
+                print(track_info)
+            except UnicodeEncodeError:
+                import sys
+                print(track_info.encode(sys.stdout.encoding, errors='replace').decode(sys.stdout.encoding))
 
     def display_playlists(self):
         """Displays information about cached playlists using plexapi."""

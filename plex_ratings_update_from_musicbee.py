@@ -45,7 +45,7 @@ MULTIPLE_OK = [
     "b:\\seed_archive\\music_library\\skinshape - umoja (2020) - web flac\\",
     "b:\\seed_archive\\music_library\\santana - supernatural (1999) (07822-19080-2) [cd flac]\\",
     "b:\\seed_archive\\music_library\\django reinhardt - djangology (2002) {bluebird 09026-63957-2} [flac-cd]\\",
-    "b:\\seed_archive\\\music_library\\\jean michel jarre\\"
+    "b:\\seed_archive\\music_library\\jean michel jarre\\"
     "b:\\seed_archive\\music_library\\nosaj thing - continua (2022) - web flac\\",
     "b:\\seed_archive\\music_library\\nicolas jaar - pomegranates (2015) web flac\\",
     "b:\\seed_archive\\music_library\\nicolas jaar - cenizas (2020) [web flac]\\",

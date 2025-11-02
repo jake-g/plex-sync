@@ -1,284 +1,309 @@
-
 import time
 import os
-from collections import defaultdict
+import sys
 import pandas as pd
+from collections import defaultdict
 
 from plex_lib import PlexMusic
 import unify_lib as uni
-
-# Your Plex server details and credentials
 from auth import PLEX_TOKEN, PLEX_SERVER_URL
-PLEX_MUSIC_LIB = 'Music'  # Name of the Music library section
-# Plex Sync
-VERBOSE = False
-PLEX_SYNC_LOG_EVERY = 10000
-PLEX_SLEEP_TIME_S = 0.1
 
-# Options
+# CONFIGURATION
+sys.stdout.reconfigure(encoding='utf-8')
+
+PLEX_MUSIC_LIB = 'Music'
+VERBOSE = True
+DRY_RUN = False
+PLEX_SYNC_LOG_EVERY = 5000
+PLEX_SLEEP_TIME_S = 0.05
+# Number of recently rated Plex tracks to save (Export M3U instead of Overwrite)
+N_RECENT_PLEX_RATED = 100
+
+# UI Options
 SHOW_PLEX_LIBS = False
-SHOW_PLEX_PLAYLISTS = False
 SHOW_RECENT_RATED = True
 SHOW_RECENT_ADDED = True
-N_RECENT = 15
+N_RECENT_DISPLAY = 20
 
-# Inputs
-DATE = time.strftime('%m-%d-%Y')
-CACHE_FOLDER = 'logs'
+# Paths
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+M3U_DIR = os.path.join(SCRIPT_DIR, 'm3u')
+LOG_DIR = os.path.join(SCRIPT_DIR, 'logs')
+MB_LIB = os.path.join(SCRIPT_DIR, 'db_assets', 'musicbee_library.tsv')
+MB_INBOX = os.path.join(SCRIPT_DIR, 'db_assets', 'musicbee_inbox.tsv')
 
-# MusicBee Database
-MB_LIB = './db_assets/musicbee_library.tsv'
-MB_INBOX = './db_assets/musicbee_inbox.tsv'
-
-
-MULTIPLE_OK = [
-    "b:\\seed_archive\\music_library\\andre 3000 - new blue sun (2023) - web flac\\",
-    "b:\\seed_archive\\music_library\\bjork - debut (flac, log, cue)\\",
-    "b:\\seed_archive\\music_library\\bjork - fossora (2022) [cd flac] {tplp1485cd2}\\",
-    "b:\\seed_archive\\music_library\\janelle monae - dirty computer (2018) - cd flac\\",
-    "b:\\seed_archive\\music_library\\magma - mekanik destruktiw kommandoh (1973) [flac] (1989 seventh records rex vii)\\",
-    "b:\\seed_archive\\music_library\\royksopp - profound mysteries (2022) {dog051cd cd} [flac]\\",
-    "b:\\seed_archive\\music_library\\stan getz & joao gilberto - getz-gilberto [verve records japan pocj-9202]\\",
-    "b:\\seed_archive\\music_library\\vieux farka toure & khruangbin - ali (2022) - web flac\\",
-    "b:\\seed_archive\\music_library\\boris - smile [jp] [cd] [flac]\\",
-    "b:\\seed_archive\\music_library\\david bowie - heroes (1984) - rca pd83857 germany - flac\\",
-    "b:\\seed_archive\\music_library\\skinshape - umoja (2020) - web flac\\",
-    "b:\\seed_archive\\music_library\\santana - supernatural (1999) (07822-19080-2) [cd flac]\\",
-    "b:\\seed_archive\\music_library\\django reinhardt - djangology (2002) {bluebird 09026-63957-2} [flac-cd]\\",
-    "b:\\seed_archive\\music_library\\jean michel jarre\\"
-    "b:\\seed_archive\\music_library\\nosaj thing - continua (2022) - web flac\\",
-    "b:\\seed_archive\\music_library\\nicolas jaar - pomegranates (2015) web flac\\",
-    "b:\\seed_archive\\music_library\\nicolas jaar - cenizas (2020) [web flac]\\",
-    "b:\\seed_archive\\music_library\\madlib - sound ancestors (2021) - web flac\\",
-    "b:\\seed_archive\\music_library\\lusine - sensorimotor (2017) [flac]\\",
-    "b:\\seed_archive\\music_library\\various artists - late night tales khruangbin (2020) - web flac\\",
-    "b:\\seed_archive\\music_library\\fleet foxes - crack-up (2017) [flac]\\",
-    "b:\\seed_archive\\music_library\\plat - compulsion (2005) - de-emphasized flac\\",
-    "b:\\seed_archive\\music_lossy\\luc ferrari - presque rien [lame mp3 (vbr-new quality 0.0)]\\",
-    "b:\\seed_archive\\music\\dauwd - 2013 - heat division remixes [flac]\\",
-    "b:\\seed_archive\\music\\l'imperatrice - tako tsubo (2021) - web flac\\",
-    "b:\\seed_archive\\music\\ (parannoul) - 2021 - to see the next part of the dream [web flac]\\",
-    "b:\\seed_archive\\music\\helado negro - far in (2021) - web flac\\",
-    "b:\\seed_archive\\music\\janelle monae - the archandroid\\",
-]
-
-MULTIPLE_OK = [
-    "b:\\seed_archive\\music_library\\andre 3000 - new blue sun (2023) - web flac\\",
-    "b:\\seed_archive\\music_library\\bjork - debut (flac, log, cue)\\",
-    "b:\\seed_archive\\music_library\\bjork - fossora (2022) [cd flac] {tplp1485cd2}\\",
-    "b:\\seed_archive\\music_library\\janelle monae - dirty computer (2018) - cd flac\\",
-    "b:\\seed_archive\\music_library\\magma - mekanik destruktiw kommandoh (1973) [flac] (1989 seventh records rex vii)\\",
-    "b:\\seed_archive\\music_library\\royksopp - profound mysteries (2022) {dog051cd cd} [flac]\\",
-    "b:\\seed_archive\\music_library\\stan getz & joao gilberto - getz-gilberto [verve records japan pocj-9202]\\",
-    "b:\\seed_archive\\music_library\\vieux farka toure & khruangbin - ali (2022) - web flac\\",
-    "b:\\seed_archive\\music_library\\boris - smile [jp] [cd] [flac]\\",
-    "b:\\seed_archive\\music_library\\david bowie - heroes (1984) - rca pd83857 germany - flac\\",
-    "b:\\seed_archive\\music_library\\skinshape - umoja (2020) - web flac\\",
-    "b:\\seed_archive\\music_library\\santana - supernatural (1999) (07822-19080-2) [cd flac]\\",
-    "b:\\seed_archive\\music_library\\django reinhardt - djangology (2002) {bluebird 09026-63957-2} [flac-cd]\\",
-    "b:\\seed_archive\\music_library\\jean michel jarre\\",
-    "b:\\seed_archive\\music_library\\nosaj thing - continua (2022) - web flac\\",
-    "b:\\seed_archive\\music_library\\nicolas jaar - pomegranates (2015) web flac\\",
-    "b:\\seed_archive\\music_library\\nicolas jaar - cenizas (2020) [web flac]\\",
-    "b:\\seed_archive\\music_library\\madlib - sound ancestors (2021) - web flac\\",
-    "b:\\seed_archive\\music_library\\lusine - sensorimotor (2017) [flac]\\",
-    "b:\\seed_archive\\music_library\\various artists - late night tales khruangbin (2020) - web flac\\",
-    "b:\\seed_archive\\music_library\\fleet foxes - crack-up (2017) [flac]\\",
-    "b:\\seed_archive\\music_library\\plat - compulsion (2005) - de-emphasized flac\\",
-    "b:\\seed_archive\\music_lossy\\luc ferrari - presque rien [lame mp3 (vbr-new quality 0.0)]\\",
-    "b:\\seed_archive\\music\\dauwd - 2013 - heat division remixes [flac]\\",
-    "b:\\seed_archive\\music\\l'imperatrice - tako tsubo (2021) - web flac\\",
-    "b:\\seed_archive\\music\\ (parannoul) - 2021 - to see the next part of the dream [web flac]\\",
-    "b:\\seed_archive\\music\\helado negro - far in (2021) - web flac\\",
-    "b:\\seed_archive\\music\\janelle monae - the archandroid\\",
-    "b:\\seed_archive\\music\\coldplay - 2005 - x y\\",
-    "b:\\seed_archive\\music\\mndsgn. - 2018 - snax (web flac)\\",
-    "b:\\seed_archive\\music\\[anjcd008] above & beyond - anjunabeats volume five (2007) [flac]\\",
-    "b:\\seed_archive\\music\\babyshambles - down in albion (2006 us release) [flac]\\",
-    "b:\\seed_archive\\music_library\\badbadnotgood - late night tales (2017) [flac]\\",
-    "b:\\seed_archive\\music\\latenighttales - belle & sebastian vol. 2 [cd-flac]\\",
-    "b:\\seed_archive\\music_library\\bjork -2015- vulnicura (flac)\\",
-    "b:\\seed_archive\\music_library\\burzum - filosofem (2010 - bye005cd) [1996] (flac-cd)\\",
-    "b:\\seed_archive\\music_lossy\\death's dynamic shroud - heavy black heart (v0)\\",
-    "b:\\seed_archive\\music\\generationals - con law\\",
-    "b:\\seed_archive\\music_lossy\\bill fontana - field recordings of natural sounds (1983) [mp3 v0]\\",
-    "b:\\seed_archive\\music_lossy\\deerhoof - mountain moves (2017 web) [v0]\\",
-    "b:\\seed_archive\\music_library\\procol harum - procol harum (1967) [flac] {cube records, 8.26287 zr}\\",
-    "b:\\seed_archive\\music_library\\evenings - lately (2011) [flac]\\",
-    "b:\\seed_archive\\music\\francoise hardy - comment te dire adieu (1968) [flac] {8406382}\\",
-    "b:\\seed_archive\\music_library\\stan getz - 1976 - the best of two worlds [flac]\\",
-    "b:\\seed_archive\\music_library\\glass animals - remixes (2015) - flac web\\",
-    "b:\\seed_archive\\music_library\\hot sugar - seductive nightmares 2 (2014) [flac]\\",
-    "b:\\seed_archive\\music_library\\jean michel jarre - 1976 - oxygene [1994 mfsl udcd 613] [flac]\\",
-    "b:\\seed_archive\\music_library\\the lions - soul riot (2015) [flac] {sth2346}\\",
-    "b:\\seed_archive\\music\\los lobos - how will the wolf survive (1984) [flac]\\",
-    "b:\\seed_archive\\music\\lykke li - so sad so sexy (2018) - cd flac\\",
-    "b:\\seed_archive\\music\\mach-hommy - pray for haiti (2021) - web flac\\",
-    "b:\\seed_archive\\music_library\\nicolas jaar - archivos de radio piedras (2024) [web flac-16]\\",
-    "b:\\seed_archive\\music\\rammstein - zeit (2022) [flac]\\",
-    "b:\\seed_archive\\music_library\\ricky eat acid - you get sick; you regret things (remastered) (flac)\\",
-    "b:\\seed_archive\\music_library\\schoolboy q - setbacks (2011) [web, top dawg entertainment] - flac\\",
-    "b:\\seed_archive\\music_library\\sonic youth - 1992 - dirty - flac\\",
-    "b:\\seed_archive\\music_library\\todd terje - it's album time (2014) [flac] 100%\\",
-    "b:\\seed_archive\\music\\kruder & dorfmeister - the k&d sessions (1998) [stud!o k7 - !k7073cd] flac\\",
-    "b:\\seed_archive\\music\\a winged victory for the sullen - a winged victory for the sullen - 2011 flac\\",
-    "b:\\seed_archive\\music_library\\young montana - limerence (web flac)\\",
-    "b:\\seed_archive\\music_lossy\\yumi zouma (2014) - yumi zouma [mp3-v0]\\",
-   
-]
-
+# MAPPING & WHITELIST
 NUC_PC_PREFIX_MAP = {
     '\\hdd\\seed\\': 'B:\\seed\\',
     '\\hdd\\seed_archive\\': 'B:\\seed_archive\\',
     '\\mnt\\music\\': 'D:\\Music\\',
 }
 
+MULTIPLE_OK = [
+    # 123 / Symbols
+    "b:\\seed_archive\\music_library\\1000 Gecs",
+    "b:\\seed_archive\\music\\∩╝Æ∩╝ÿ∩╝æ∩╝ö - µû░πüùπüäµùÑπü«Φ¬òτöƒ",
+    # A
+    "b:\\seed_archive\\music_library\\Altin G├╝n - A┼ƒk",
+    "b:\\seed_archive\\music_library\\Andre╠ü 3000 - New Blue Sun",
+    "d:\\Music\\Library\\Aphex Twin\\Selected Ambient Works, Volume II",
+    "b:\\seed_archive\\music\\Azmari - Sam─ü'─½",
+    "b:\\seed_archive\\music\\A Winged Victory for the Sullen",
+    # B
+    "b:\\seed_archive\\music\\Babyshambles - Down In Albion",
+    "b:\\seed_archive\\music_library\\BADBADNOTGOOD - Late Night Tales",
+    "b:\\seed_archive\\music\\LateNightTales - Belle & Sebastian Vol. 2",
+    "b:\\seed_archive\\music_library\\Bj├╢rk - Debut",
+    "b:\\seed_archive\\music_library\\Bj├╢rk - fossora",
+    "b:\\seed_archive\\music_library\\Bj├╢rk -2015- Vulnicura",
+    "b:\\seed_archive\\music_library\\Boris - Smile",
+    "b:\\seed_archive\\music_library\\Burzum - Filosofem",
+    # D
+    "b:\\seed_archive\\music\\Dauwd - 2013 - Heat Division Remixes",
+    "b:\\seed_archive\\music_library\\David Bowie - Heroes",
+    "b:\\seed_archive\\music_library\\Django Reinhardt - Djangology",
+    # F
+    "b:\\seed_archive\\music_library\\Fleet Foxes - Crack-Up",
+    "b:\\seed_archive\\music\\Fran├ºoise Hardy - Comment te dire adieu",
+    # G
+    "b:\\seed_archive\\music_library\\Glass Animals - Remixes",
+    # H
+    "b:\\seed_archive\\music\\Helado Negro - Far In",
+    "b:\\seed_archive\\music_library\\Hot Sugar - Seductive Nightmares 2",
+    # J
+    "b:\\seed_archive\\music_library\\Janelle Mon├íe - Dirty Computer",
+    "b:\\seed_archive\\music_library\\Jean Michel Jarre - 1976 - Oxygene",
+    # K
+    "b:\\seed_archive\\music_library\\Keith Jarrett - The Ko╠êln Concert",
+    "b:\\seed_archive\\music\\Kruder & Dorfmeister - The K&D Sessions",
+    # L
+    "b:\\seed_archive\\music\\L'Impe╠üratrice - Tako Tsubo",
+    "b:\\seed_archive\\music\\Laryssa Kim - Contezza",
+    "b:\\seed_archive\\music_library\\The Lions - Soul Riot",
+    "b:\\seed_archive\\music\\Los Lobos - How Will the Wolf Survive",
+    "b:\\seed_archive\\music_lossy\\Luc Ferrari - Presque Rien",
+    "b:\\seed_archive\\music_library\\Lusine - Sensorimotor",
+    "b:\\seed_archive\\music\\Lykke Li - So Sad So Sexy",
+    # M
+    "b:\\seed_archive\\music\\Mach-Hommy - Pray For Haiti",
+    "b:\\seed_archive\\music_library\\Madlib - Sound Ancestors",
+    "b:\\seed_archive\\music\\Magma - Me╠êkani╠êk De╠êstrukti╠êw╠Ç Ko╠êmmando╠êh",
+    # N
+    "b:\\seed_archive\\music_library\\Nicolas Jaar - Cenizas",
+    "b:\\seed_archive\\music_library\\Nicolas Jaar - Pomegranates",
+    "b:\\seed_archive\\music_library\\Nosaj Thing - Continua",
+    # P
+    "b:\\seed_archive\\music\\ßäæßàíßäàßàíßå½ (Parannoul)",
+    "b:\\seed_archive\\music_library\\Plat - Compulsion",
+    "b:\\seed_archive\\music\\Potatoi - Toy",
+    # R
+    "b:\\seed_archive\\music\\Rammstein - Zeit",
+    "b:\\seed_archive\\music_library\\Ricky Eat Acid - You get sick",
+    "b:\\seed_archive\\music_library\\R├╢yksopp - Profound Mysteries",
+    # S
+    "b:\\seed_archive\\music_library\\Santana - Supernatural",
+    "b:\\seed_archive\\music\\ScHoolboy Q - Setbacks",
+    "b:\\seed_archive\\music_library\\Skinshape - Umoja",
+    "b:\\seed_archive\\music\\Sofia Kourtesis - Madres",
+    "b:\\seed_archive\\music_library\\Sonic Youth - 1992 - Dirty",
+    "b:\\seed_archive\\music_library\\Stan Getz - 1976 - The Best of Two Worlds",
+    "b:\\seed_archive\\music_library\\Stan Getz & Jo├úo Gilberto - Getz-Gilberto",
+    "b:\\seed_archive\\music\\Sunn O))) - Monoliths & Dimensions",
+    # T
+    "b:\\seed_archive\\music\\Takeuchi, Mariya - Variety",
+    "b:\\seed_archive\\music_library\\Thriftworks - Rainmaker",
+    "b:\\seed_archive\\music_library\\Todd Terje - It's Album Time",
+    # V
+    "b:\\seed_archive\\music_library\\Vieux Farka Tour├⌐ & Khruangbin - Ali",
+    # Y / Z
+    "b:\\seed_archive\\music_library\\Young Montana - Limerence",
+    "b:\\seed_archive\\music_lossy\\Yumi Zouma (2014) - Yumi Zouma",
+]
 
-def convert_nuc_to_pc_path(nuc_path, prefix_map=NUC_PC_PREFIX_MAP):
-    """Converts a NUC path to a PC path using a prefix map."""
-    for nuc_prefix, pc_prefix in prefix_map.items():
+
+def convert_nuc_to_pc_path(nuc_path):
+    """Converts linux/nuc paths to windows/pc paths."""
+    for nuc_prefix, pc_prefix in NUC_PC_PREFIX_MAP.items():
         if nuc_path.startswith(nuc_prefix):
             return os.path.normpath(pc_prefix + nuc_path[len(nuc_prefix):])
-    print(f'WARNING: Path {nuc_path} prefix not in {prefix_map}')
     return nuc_path
 
 
 def create_plex_track_map(plex_tracks):
-    """Creates a dictionary mapping file paths to Plex track data."""
+    """Creates a dictionary mapping NORMALIZED file paths to Plex track data."""
+    print('\nMapping Plex entries...', end=' ', flush=True)
     track_map = {}
     for track in plex_tracks:
-        nuc_filepath = os.path.normpath(track['Media'][0]['Part'][0]['file'])
-        pc_filepath = convert_nuc_to_pc_path(nuc_filepath)
-        track_map[pc_filepath] = track
+        for media in track['Media']:
+            for part in media['Part']:
+                nuc_filepath = os.path.normpath(part['file'])
+                pc_filepath = convert_nuc_to_pc_path(nuc_filepath)
+                norm_key = uni.sanitize_path_for_matching(pc_filepath)
+                track_map[norm_key] = {
+                    'pc_path': pc_filepath,
+                    'data': track,
+                    'ratingKey': track['ratingKey']
+                }
     print(f"Created track map with {len(track_map)} entries")
     return track_map
 
 
+def load_musicbee_data():
+    """Ingests and sanitizes MusicBee library."""
+    print('\n' + '='*40 + '\n LOADING MUSICBEE DB \n' + '='*40)
+    df = uni.ingest_musicbee_db_assets(MB_LIB, MB_INBOX, save_tsv=False)
+    print('Sanitizing paths...', end=' ', flush=True)
+    df['Path_Norm'] = df['Path'].apply(uni.sanitize_path_for_matching)
+    print('Done.')
+    df = uni.mb_standardize_ratings(df)
+    print(f'Loaded {len(df)} tracks.')
+    return df.groupby('Path_Norm')
+
+
+def is_whitelisted(path):
+    """Checks if a path is in the MULTIPLE_OK whitelist."""
+    clean_path = uni.slugify(path, strip_non_alphanum=True)
+    for ok in MULTIPLE_OK:
+        if clean_path.startswith(uni.slugify(ok, strip_non_alphanum=True)):
+            return True
+    return False
+
+
+# MAIN
 if __name__ == "__main__":
+    t0 = time.time()
 
-  print('\nInitializing Plex Music Library...')
-  t0 = time.time()
-  plex_music = PlexMusic(PLEX_SERVER_URL, PLEX_TOKEN)
+    # 1. Initialize Plex
+    print('\n' + '='*40 + '\n INITIALIZING PLEX \n' + '='*40)
+    plex_music = PlexMusic(PLEX_SERVER_URL, PLEX_TOKEN)
+    if SHOW_PLEX_LIBS:
+        plex_music.display_libraries()
 
-  if SHOW_PLEX_LIBS:
-      plex_music.display_libraries()
+    # 2. Get Recent Tracks
+    print(
+        f"Fetching Top {N_RECENT_PLEX_RATED} Recently Rated tracks to prevent overwrites...")
+    recent_tracks = plex_music.get_recently_rated_tracks(
+        limit=N_RECENT_PLEX_RATED)
+    recent_keys = set([str(t['ratingKey']) for t in recent_tracks])
+    print(f"Identified {len(recent_keys)} recent tracks.")
 
-  plex_playlists = plex_music.get_playlists()
-  print(f'Fetched {len(plex_playlists)} {PLEX_MUSIC_LIB} playlists')
-  plex_tracks = plex_music.get_tracks()
-  print(f'Fetched {len(plex_tracks)} {PLEX_MUSIC_LIB} tracks')
+    # 3. Display Stats
+    if SHOW_RECENT_RATED:
+        print('\n[Plex] Recently Rated:')
+        plex_music.display_tracks(
+            recent_tracks[:N_RECENT_DISPLAY], show_details=True)
 
-  if SHOW_PLEX_PLAYLISTS:
-      print('\nPlex Playlists...')
-      plex_music.display_playlists()
+    # 4. Create Plex Map
+    plex_tracks = plex_music.get_tracks()
+    print(f'Fetched {len(plex_tracks)} tracks total.')
+    plex_map = create_plex_track_map(plex_tracks)
 
-  if SHOW_RECENT_RATED:
-      print('\nPlex Recently Rated...')
-      recently_rated = plex_music.get_recently_rated_tracks(limit=N_RECENT)
-      print(f'Tracks recently Rated (showing {N_RECENT}):')
-      plex_music.display_tracks(recently_rated, show_details=True)
+    # 5. Load MB Data
+    mb_grouped = load_musicbee_data()
 
-  if SHOW_RECENT_ADDED:
-      playlist_name = 'Recently Added'
-      print(f'\nPlex {playlist_name}...')
-      playlist_tracks = plex_music.get_playlist_tracks(playlist_name)
-      print(f"Tracks from '{playlist_name}' Playlist (showing {N_RECENT}):")
-      plex_music.display_tracks(playlist_tracks[:N_RECENT], show_details=True)
+    # 6. Init Counters
+    counters = defaultdict(int)
+    m3u_counts = defaultdict(int)
+    export_queue = []
+    print('\n' + '='*40 + '\n SYNCING \n' + '='*40)
+    print(f"Starting Sync... (DRY RUN: {DRY_RUN})")
 
-  print('\nInitializing Music Bee Database...', flush=True)
-  # Load Tracks to Rate
-  mb_tracks = uni.ingest_musicbee_db_assets(MB_LIB, MB_INBOX, save_tsv=False)
-  mb_tracks['Path_Norm'] = mb_tracks['Path'].apply(uni.slugify)
-  mb_tracks = uni.mb_standardize_ratings(mb_tracks)
-  mb_tracks_rated = mb_tracks.loc[mb_tracks['Rating'] > 0]
-  mb_tracks_rated['Rating'].value_counts()
-  print(f'Found {len(mb_tracks)} total mb tracks, {len(mb_tracks_rated)} of them',
-        f'({len(mb_tracks_rated)/len(mb_tracks):0.1%}) are rated')
-  mb_tracks_rated.info()
+    # 7. Main Sync Loop
+    for i, (plex_key, plex_val) in enumerate(plex_map.items()):
+        if i % PLEX_SYNC_LOG_EVERY == 0:
+            print(f'{i/len(plex_map):0.0%} processed...', flush=True)
+        plex_data, plex_path = plex_val['data'], plex_val['pc_path']
+        track_title = plex_data.get('title', '')
+        rating_key = str(plex_val['ratingKey'])
+        # BLANK TITLE FALLBACK
+        # If title is missing or "Blank", fallback to filename
+        if not track_title or track_title.strip().lower() == "blank":
+            # Use filename as title (e.g., '01 - Song Name')
+            filename = os.path.basename(plex_path)
+            track_title = os.path.splitext(filename)[0]
+            counters['Metadata: Fixed from Filename'] += 1
+            # Optional: don't print every single one if you have many, but useful for now
+            # if VERBOSE:
+            #     print(f"Metadata Fix: Using filename for '{filename}'")
 
-  print('\nMatch MusicBee and Plex Entries...', flush=True)
-  plex_track_map = create_plex_track_map(plex_music.get_tracks())
-  # Normalize paths in mb_tracks
-  mb_paths_norm = set(mb_tracks['Path_Norm'])
-  # Normalize keys in plex_track_map (in-place modification)
-  plex_track_map_norm = {uni.slugify(k): v for k, v in plex_track_map.items()}
-  match_counters = defaultdict(int)
-  plex_mb_map = {}
-  ignore_match_path = 'd:\\music\\mixes\\'  # dont care
-  for pc_filepath, plex_track in plex_track_map_norm.items():
-      if pc_filepath in mb_paths_norm:
-          matching_rows = mb_tracks[mb_tracks['Path_Norm'] == pc_filepath]
-          if len(matching_rows) > 1:
-              if not any(pc_filepath.startswith(ok_path) for ok_path in MULTIPLE_OK):
-                  try:
-                    print(f'Warning: Multiple matches (taking first) for',
-                          f'{pc_filepath}:\n{matching_rows["fuzzy_track_id"]}\n')
-                  except Exception as e:
-                      print(f'Error on multiple match warning...\n{e}')
-                  match_counters['Multiple Matches'] += 1
-          match_counters['Match Found'] += 1
-          mb_track_row = matching_rows.iloc[0]
-          plex_mb_map[pc_filepath] = mb_track_row
-      else:
-          match_counters['No Matches'] += 1
-          if ignore_match_path not in pc_filepath:
-              print(f'Warning: No matches for {pc_filepath}', flush=True)
+        # MATCHING LOGIC
+        if plex_key not in mb_grouped.groups:
+            counters['No Match'] += 1
+            continue
+        mb_rows = mb_grouped.get_group(plex_key)
+        mb_match = mb_rows.iloc[0]
+        if len(mb_rows) > 1:
+            if is_whitelisted(plex_path):
+                counters['Match (Duplicate Allowed)'] += 1
+            else:
+                counters['Match (Duplicate Warning)'] += 1
+                if VERBOSE:
+                    print(f"WARN: Multiple matches for {plex_path}")
+        else:
+            counters['Match Found'] += 1
 
-  print("Match Counts:")
-  for name, count in match_counters.items():
-      print(f"{name}: {count}")
+        # SYNC LOGIC
+        p_rating = (float(plex_data.get('userRating', 0)) / 2.0)
+        m_rating = float(mb_match['Rating']) if pd.notna(
+            mb_match['Rating']) else 0.0
 
-  print('\nUpdate Plex Rating from MusicBee Rating...', flush=True)
-  rated_tracks = []
-  counters = defaultdict(int)
-  mb_paths_rated = set(mb_tracks_rated['Path_Norm'])
-  for i, (pc_filepath, plex_track_data) in enumerate(plex_track_map_norm.items(), start=1):
-      if i % PLEX_SYNC_LOG_EVERY == 0:
-          print(f'{i/len(plex_track_map_norm):0.0%}', end='...', flush=True)
-      if pc_filepath not in mb_paths_rated:
-          counters['plex_track_not_in_mb_rated'] += 1
-          continue
+        # 1. Cleanup Invalid Ratings (e.g. 1.7, 3.8) - Reset to Unrated
+        if p_rating > 0 and (p_rating % 0.5 != 0):
+            if VERBOSE:
+                print(
+                    f"  CLEANUP: {track_title} (Plex: {p_rating}) -> Unrated [Invalid Rating]")
+            if not DRY_RUN:
+                plex_music.get_track(rating_key).rate(0)
+                time.sleep(PLEX_SLEEP_TIME_S)
+            counters['Plex Force Clean (Invalid)'] += 1
+            p_rating = 0.0  # Local update for subsequent logic
 
-      # Get MusicBee rating and convert to Plex scale
-      mb_row = mb_tracks_rated[mb_tracks_rated['Path_Norm']
-                               == pc_filepath].iloc[0]
-      new_plex_rating = None
-      if pd.notna(mb_row['Rating']) and 0 < float(mb_row['Rating']) <= 5:
-          new_plex_rating = int(round(mb_row['Rating'] * 2.0))
+        # 2. Conflict Resolution
+        if abs(p_rating - m_rating) > 0.1:
+            is_recent = rating_key in recent_keys
+            # A. Recent Plex Rating -> Export M3U (Do NOT overwrite)
+            if is_recent and p_rating > 0:
+                export_queue.append(
+                    {'Path': mb_match['Path'], 'Rating': p_rating})
+                m3u_counts[p_rating] += 1
+                counters['Conflict: Recent Plex Rating (Export M3U)'] += 1
+                if VERBOSE:
+                    print(
+                        f"  M3U EXPORT: {track_title} (Plex: {p_rating} | MB: {m_rating}) [Recent Plex Rating]")
 
-      cur_plex_rating = plex_track_data.get('userRating', None)
-      if cur_plex_rating == new_plex_rating:
-          counters['plex_track_rating_matches'] += 1
-      else:
-          rated_tracks.append(plex_track_data)
-          track = plex_music.get_track(plex_track_data["ratingKey"])
-          track.rate(new_plex_rating)
-          time.sleep(PLEX_SLEEP_TIME_S)
-          if VERBOSE:
-              print(f"Updating rating from {cur_plex_rating} to",
-                    f"{new_plex_rating} for {pc_filepath}")
-          if cur_plex_rating != None:
-              counters['plex_track_rating_updated'] += 1
-          else:
-              counters['plex_track_rating_set'] += 1
+            # B. Older/Stale Rating -> MusicBee Overwrite Plex
+            else:
+                if DRY_RUN:
+                    counters['Dry Run: MB Overwrite'] += 1
+                    if VERBOSE:
+                        print(
+                            f"  [DRY] MB Overwrite: {track_title} (Plex: {p_rating} -> {m_rating})")
+                else:
+                    plex_music.get_track(rating_key).rate(int(m_rating * 2))
+                    counters['Plex Updated (MB Trumps)'] += 1
+                    time.sleep(PLEX_SLEEP_TIME_S)
+        else:
+            counters['Ratings Match'] += 1
+            if p_rating > 0:
+                counters['Total Rated Matches'] += 1
+            else:
+                counters['Matched (Unrated)'] += 1
 
-  print("Plex Rating Counts:")
-  for name, count in counters.items():
-      print(f"{name}: {count}")
+    # 8. Final Report
+    print("\n" + "-"*30 + "\n SYNC SUMMARY \n" + "-"*30)
+    for k, v in sorted(counters.items()):
+        print(f"{k:<25}: {v}")
 
-  # print(f"\nSaving Map and Counters to {CACHE_FOLDER}")
-  # # uni.save_dict_to_file(
-  # #     plex_mb_map,
-  # #     os.path.join(CACHE_FOLDER, f'plex_musicbee_map.tsv'),
-  # # )
-  # uni.save_dict_to_file(
-  #     dict(match_counters),
-  #     os.path.join(CACHE_FOLDER, f'plex_musicbee_match_counters_{DATE}.tsv'),
-  # )
-  # uni.save_dict_to_file(
-  #     dict(counters),
-  #     os.path.join(
-  #         CACHE_FOLDER, f'plex_rating_from_musicbee_counters_{DATE}.tsv'),
-  # )
-
-  print(f'\nFinished in {(time.time() - t0)/60:0.1f} minutes', flush=True)
+    # Export M3Us
+    if export_queue:
+        print(f"\nWriting M3U Exports to '{M3U_DIR}'...")
+        if not os.path.exists(M3U_DIR):
+            os.makedirs(M3U_DIR)
+        df = pd.DataFrame(export_queue)
+        for rating, group in df.groupby('Rating'):
+            fname = f"plex_ratings_{rating}.m3u"
+            group['Path'].to_csv(os.path.join(
+                M3U_DIR, fname), sep='\t', header=False, index=False)
+            print(f"  -> {fname}: {len(group)} tracks")
+            
+    print(f'\nDone in {(time.time() - t0)/60:0.1f}m.')

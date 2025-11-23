@@ -17,7 +17,7 @@ DRY_RUN = False
 PLEX_SYNC_LOG_EVERY = 5000
 PLEX_SLEEP_TIME_S = 0.05
 # Number of recently rated Plex tracks to save (Export M3U instead of Overwrite)
-N_RECENT_PLEX_RATED = 100
+N_RECENT_PLEX_RATED = 500
 
 # UI Options
 SHOW_PLEX_LIBS = False

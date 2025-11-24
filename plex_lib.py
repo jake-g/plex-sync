@@ -1,12 +1,21 @@
-# Plex API
+import sys
 import requests
-from typing import List, Dict, Optional
+from datetime import datetime
+from typing import List, Dict, Optional, Union
 
 from plexapi.server import PlexServer
 from plexapi.audio import Track
 from plexapi.playlist import Playlist
 
-from datetime import datetime
+
+class _StubTrack:
+    """Lightweight stub to mimic a Track object for playlist creation."""
+
+    def __init__(self, server, ratingKey: str):
+        self.ratingKey = ratingKey
+        self.listType = 'audio'
+        # plexapi requires _server to handle cross-server logic
+        self._server = server
 
 
 class PlexMusic:
@@ -19,7 +28,7 @@ class PlexMusic:
             server_url (str): The URL of the Plex server.
             token (str): The Plex authentication token.
             library_name (str, optional): The name of the music library section. 
-                                         Defaults to PLEX_MUSIC_LIB.
+                                         Defaults to 'Music'.
         """
         self.server = PlexServer(server_url, token)
         self.music = self.server.library.section(library_name)
@@ -45,8 +54,8 @@ class PlexMusic:
 
     def get_playlists(self) -> List[Playlist]:
         """Fetches and caches the playlists from the Plex music library."""
-        if self._playlists is None:
-            self._playlists = self.music.playlists()
+        # Force refresh to ensure we have latest state for sync operations
+        self._playlists = self.music.playlists()
         return self._playlists
 
     def get_playlist_id_by_name(self, playlist_name: str) -> Optional[int]:
@@ -86,6 +95,7 @@ class PlexMusic:
             List[Dict]: A list of dictionaries containing essential track metadata.
         """
         if self._tracks is None:
+            # Construct raw URL for fast metadata fetch (avoids overhead of PlexAPI objects)
             url = (
                 f"{self.music._server._baseurl}/library/sections/"
                 f"{self.music.key}/all?type=10&X-Plex-Token="
@@ -93,6 +103,7 @@ class PlexMusic:
             )
             if limit:
                 url += f"&containerSize={limit}"
+
             headers = {'Accept': 'application/json'}
             response = requests.get(url, headers=headers)
             response.raise_for_status()
@@ -109,7 +120,6 @@ class PlexMusic:
             Track: The Track object if found, otherwise raises an exception. 
         """
         return self.music.fetchItem(f'/library/metadata/{rating_key}')
-
 
     def get_recently_rated_tracks(self, limit: int = 100) -> List[Dict]:
         """Filters and sorts cached track metadata by lastRatedAt.
@@ -140,7 +150,7 @@ class PlexMusic:
             'Media': [{'audioCodec': media_item.audioCodec} for media_item in track.media]
         }
 
-    def display_tracks(self, tracks: List[Track] | List[Dict], show_details: bool = False):
+    def display_tracks(self, tracks: List[Union[Track, Dict]], show_details: bool = False):
         """Displays information about tracks (dictionaries or Track objects)."""
         for i, track in enumerate(tracks, start=1):
             if isinstance(track, Track):
@@ -159,7 +169,9 @@ class PlexMusic:
             if show_details and track.get('lastRatedAt'):
                 rating = track.get('userRating')
                 view_count = track.get('viewCount')
-                codec = track.get('Media', [{}])[0].get('audioCodec', 'Unknown').upper()
+                codec = track.get('Media', [{}])[0].get(
+                    'audioCodec', 'Unknown').upper()
+
                 track_info += (
                     f" [Rated {rating/2:.1f} stars on "
                     f"{datetime.fromtimestamp(track['lastRatedAt']).strftime('%Y-%m-%d')}"
@@ -171,8 +183,8 @@ class PlexMusic:
             try:
                 print(track_info)
             except UnicodeEncodeError:
-                import sys
-                print(track_info.encode(sys.stdout.encoding, errors='replace').decode(sys.stdout.encoding))
+                print(track_info.encode(sys.stdout.encoding,
+                      errors='replace').decode(sys.stdout.encoding))
 
     def display_playlists(self):
         """Displays information about cached playlists using plexapi."""
@@ -182,3 +194,56 @@ class PlexMusic:
                 f"Updated: {self.time_ago_in_days(playlist.updatedAt.timestamp())} days ago"
             )
 
+    def sync_playlist(self, title: str, rating_keys: List[str], existing_playlist: Optional[Playlist] = None) -> bool:
+        """Creates or replaces a playlist with the given rating keys.
+        Handles batching to prevent HTTP 400 errors for large playlists.
+
+        Args:
+            title (str): The name of the playlist.
+            rating_keys (List[str]): List of ratingKey IDs to add.
+            existing_playlist (Optional[Playlist]): The existing Plex playlist object to replace.
+
+        Returns:
+            bool: True if created, False if rating_keys is empty or error.
+        """
+        if not rating_keys:
+            return False
+
+        # 1. Delete existing if passed
+        if existing_playlist:
+            try:
+                existing_playlist.delete()
+            except Exception as e:
+                print(f"    [!] Error deleting old playlist '{title}': {e}")
+
+        # 2. Create new with Batching
+        # Batch size 100 is very safe for URL limits (Plex API passes keys in query string)
+        BATCH_SIZE = 100
+
+        initial_keys = rating_keys[:BATCH_SIZE]
+        remaining_keys = rating_keys[BATCH_SIZE:]
+
+        # Create Stubs with self.server passed in
+        initial_items = [_StubTrack(self.server, k) for k in initial_keys]
+
+        try:
+            # Create with first batch
+            playlist = Playlist.create(self.server, title, items=initial_items)
+
+            # Append remaining batches
+            if remaining_keys:
+                for i in range(0, len(remaining_keys), BATCH_SIZE):
+                    chunk_keys = remaining_keys[i: i + BATCH_SIZE]
+                    # Pass self.server to stubs here too
+                    chunk_items = [_StubTrack(self.server, k)
+                                   for k in chunk_keys]
+                    try:
+                        playlist.addItems(chunk_items)
+                    except Exception as e:
+                        print(
+                            f"    [!] Error appending items to '{title}' (batch {i}): {e}")
+
+            return True
+        except Exception as e:
+            print(f"    [!] Error creating playlist '{title}': {e}")
+            return False

@@ -53,8 +53,7 @@ MB_PATHS_TO_IGNORE = [
 
 # Mapping: Converts Linux/NUC paths (Plex) to Windows/PC paths (MusicBee)
 NUC_PC_PREFIX_MAP = {
-    '\\hdd\\seed_archive\\': 'B:\\seed_archive\\',
-    '\\hdd\\seed\\': 'B:\\seed\\',
+    '\\data\\seed_archive\\': 'B:\\seed_archive\\',
     '\\mnt\\music\\': 'D:\\Music\\',
 }
 

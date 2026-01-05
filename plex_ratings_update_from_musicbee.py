@@ -446,7 +446,6 @@ if __name__ == "__main__":
         df = pd.DataFrame(export_musicbee_playlists)
         for rating, group in df.groupby('Rating'):
             fname = f"plex_ratings_{rating}.m3u"
-            uni.save_m3u(group['Path'].tolist(),
-                         os.path.join(RATING_EXPORT_DIR, fname))
+            uni.save_m3u(os.path.join(RATING_EXPORT_DIR, fname), group['Path'].tolist())
             print(f"  -> {fname}: {len(group)} tracks")
     print(f'\nDone in {(time.time() - t_total)/60:0.1f}m.')

@@ -84,6 +84,38 @@ class PlexMusic:
         playlist = self.server.playlist(playlist_id)
         return playlist.items()
 
+    def cleanup_small_playlists(self, min_size: int, dry_run: bool = False) -> int:
+        """
+        Deletes music playlists containing fewer than `min_size` tracks.
+
+        Uses `leafCount` to evaluate playlist sizes efficiently without fetching 
+        full track metadata.
+
+        Args:
+            min_size: Minimum track count required to keep a playlist.
+            dry_run: If True, logs intended deletions without executing them.
+
+        Returns:
+            Count of playlists deleted (or marked for deletion).
+        """
+        deleted_count = 0
+        # Refresh cache to get latest leafCount after sync
+        playlists = self.get_playlists()
+
+        for pl in playlists:
+            if pl.leafCount < min_size:
+                status = "[DRY RUN] Would delete" if dry_run else "[Cleanup] Deleting"
+                print(
+                    f"    {status} playlist '{pl.title}' (Tracks: {pl.leafCount})")
+
+                if not dry_run:
+                    try:
+                        pl.delete()
+                        deleted_count += 1
+                    except Exception as e:
+                        print(f"    [!] Failed to delete '{pl.title}': {e}")
+        return deleted_count
+
     def get_tracks(self, limit: Optional[int] = None) -> List[Dict]:
         """Fetches and caches essential track metadata from the music library.
 

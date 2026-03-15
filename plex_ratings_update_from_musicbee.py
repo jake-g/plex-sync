@@ -21,6 +21,9 @@ PLEX_SLEEP_TIME_S = 0.05
 RECENTLY_RATED_LIMIT = 100      # Protect these from being overwritten by old MB data
 MAX_PLEX_PLAYLIST_SIZE = 100000  # Skip playlists larger than this
 
+# Playlist Settings
+MIN_PLAYLIST_SIZE = 15  # Delete playlists with fewer than this many tracks
+
 # Execution Modes
 VERBOSE = True
 DRY_RUN = False  # Live Mode: Changes will be written to Plex
@@ -432,6 +435,15 @@ if __name__ == "__main__":
             else:
                 counters['Playlist: Dry Run Skip'] += 1
         print(f"Playlist sync finished in {time.time() - t_pl_sync:.2f}s.")
+
+        # Playlist Cleanup
+        uni.print_section('CLEANING UP SMALL PLAYLISTS')
+        print("Checking for playlists with fewer than",
+              "f{MIN_PLAYLIST_SIZE} tracks...")
+        num_deleted = plex_music.cleanup_small_playlists(
+            min_size=MIN_PLAYLIST_SIZE, dry_run=DRY_RUN
+        )
+        counters['Playlist: Deleted (Too Small)'] = num_deleted
 
     # 8. Final Report
     uni.print_section('SYNC SUMMARY')

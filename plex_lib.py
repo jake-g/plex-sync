@@ -1,11 +1,11 @@
-import sys
-import requests
 from datetime import datetime
-from typing import List, Dict, Optional, Union
+import sys
+from typing import Dict, List, Optional, Union
 
-from plexapi.server import PlexServer
 from plexapi.audio import Track
 from plexapi.playlist import Playlist
+from plexapi.server import PlexServer
+import requests
 
 
 class _StubTrack:
@@ -27,7 +27,7 @@ class PlexMusic:
         Args:
             server_url (str): The URL of the Plex server.
             token (str): The Plex authentication token.
-            library_name (str, optional): The name of the music library section. 
+            library_name (str, optional): The name of the music library section.
                                          Defaults to 'Music'.
         """
         self.server = PlexServer(server_url, token)
@@ -88,7 +88,7 @@ class PlexMusic:
         """
         Deletes music playlists containing fewer than `min_size` tracks.
 
-        Uses `leafCount` to evaluate playlist sizes efficiently without fetching 
+        Uses `leafCount` to evaluate playlist sizes efficiently without fetching
         full track metadata.
 
         Args:
@@ -120,7 +120,7 @@ class PlexMusic:
         """Fetches and caches essential track metadata from the music library.
 
         Args:
-            limit (Optional[int], optional): Maximum number of tracks to fetch. 
+            limit (Optional[int], optional): Maximum number of tracks to fetch.
                                            Defaults to None.
 
         Returns:
@@ -149,7 +149,7 @@ class PlexMusic:
             rating_key (str): The rating key of the track.
 
         Returns:
-            Track: The Track object if found, otherwise raises an exception. 
+            Track: The Track object if found, otherwise raises an exception.
         """
         return self.music.fetchItem(f'/library/metadata/{rating_key}')
 

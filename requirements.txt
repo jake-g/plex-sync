@@ -1,0 +1,6 @@
+pandas
+plexapi
+requests
+fuzzywuzzy
+rapidfuzz
+python-Levenshtein

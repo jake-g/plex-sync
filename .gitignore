@@ -1,0 +1,7 @@
+.ipynb_checkpoints/
+__pycache__/
+old/
+logs/
+*.log
+.DS_Store
+auth.py

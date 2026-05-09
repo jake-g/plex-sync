@@ -1,13 +1,19 @@
-import time
+from collections import defaultdict
 import os
 import sys
+import time
+
 import pandas as pd
-from collections import defaultdict
 
-from plex_lib import PlexMusic
+# Local import
+module_path = os.path.abspath(os.path.join('..', 'music-sources-unified'))
+if module_path not in sys.path:
+    sys.path.append(module_path)
 import unify_lib as uni
-from auth import PLEX_TOKEN, PLEX_SERVER_URL
 
+from auth import PLEX_SERVER_URL
+from auth import PLEX_TOKEN
+from plex_lib import PlexMusic
 
 # =============================================================================
 # CONFIGURATION & CONSTANTS
@@ -36,8 +42,9 @@ SHOW_RECENT_ADDED = True
 N_RECENT_DISPLAY = 20
 
 # Directory Paths
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-ASSETS_DIR = os.path.join(SCRIPT_DIR, 'db_assets')
+# Root directory for unified music source outputs
+OUTPUT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'music-sources-unified'))
+ASSETS_DIR = os.path.join(OUTPUT_DIR, 'db_assets')
 
 # MusicBee Databases
 MUSICBEE_LIBRARY_TSV = os.path.join(ASSETS_DIR, 'musicbee_library.tsv')
@@ -47,7 +54,7 @@ MUSICBEE_INBOX_TSV = os.path.join(ASSETS_DIR, 'musicbee_inbox.tsv')
 MUSICBEE_PLAYLISTS_DIR = 'D:\\Music\\MusicBee\\mb_playlists'
 
 # Output: Ratings exported from Plex
-RATING_EXPORT_DIR = os.path.join(SCRIPT_DIR, 'm3u')
+RATING_EXPORT_DIR = os.path.join(OUTPUT_DIR, 'm3u')
 
 # Ignore List: Paths in MusicBee/M3Us that are deliberately NOT in Plex.
 MB_PATHS_TO_IGNORE = [
@@ -439,7 +446,7 @@ if __name__ == "__main__":
         # Playlist Cleanup
         uni.print_section('CLEANING UP SMALL PLAYLISTS')
         print("Checking for playlists with fewer than",
-              "f{MIN_PLAYLIST_SIZE} tracks...")
+              f"{MIN_PLAYLIST_SIZE} tracks...")
         num_deleted = plex_music.cleanup_small_playlists(
             min_size=MIN_PLAYLIST_SIZE, dry_run=DRY_RUN
         )

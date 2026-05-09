@@ -2,7 +2,7 @@
 $Host.UI.RawUI.WindowTitle = "plex-musicbee-sync"
 
 # --- Unified Music Sources Scripts ---
-Set-Location "D:\Projects\_Projects_Synced\music-library\music-sources-unified"
+Set-Location $PSScriptRoot
 
 # Plex
 python plex_ratings_update_from_musicbee.py | Tee-Object -FilePath "plex_ratings_update_from_musicbee.log"

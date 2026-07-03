@@ -249,8 +249,10 @@ class PlexMusic:
                 print(f"    [!] Error deleting old playlist '{title}': {e}")
 
         # 2. Create new with Batching
-        # Batch size 100 is very safe for URL limits (Plex API passes keys in query string)
-        BATCH_SIZE = 100
+        # Batch size 1000 maximizes HTTP throughput while remaining safe for local Plex API
+        BATCH_SIZE = 1000
+
+
 
         initial_keys = rating_keys[:BATCH_SIZE]
         remaining_keys = rating_keys[BATCH_SIZE:]

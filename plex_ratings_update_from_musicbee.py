@@ -20,26 +20,28 @@ from plex_lib import PlexMusic
 # =============================================================================
 sys.stdout.reconfigure(encoding='utf-8')
 
-# Plex Settings
-PLEX_LIBRARY_NAME = 'Music'
-PLEX_SYNC_LOG_EVERY = 5000
-PLEX_SLEEP_TIME_S = 0.05
-RECENTLY_RATED_LIMIT = 100      # Protect these from being overwritten by old MB data
-MAX_PLEX_PLAYLIST_SIZE = 100000  # Skip playlists larger than this
+# Plex Library Configuration
+PLEX_LIBRARY_NAME = 'Music'        # Name of target Plex music library section
+PLEX_SYNC_LOG_EVERY = 5000         # Progress log frequency (every N tracks)
+PLEX_SLEEP_TIME_S = 0.01          # 10ms micro-pause between API rate calls for LAN server
+RECENTLY_RATED_LIMIT = 100        # Protect recently rated Plex tracks from being overwritten
+MAX_PLAYLIST_SIZE = 20000         # Maximum playlist track count limit before skipping
 
-# Playlist Settings
-MIN_PLAYLIST_SIZE = 15  # Delete playlists with fewer than this many tracks
+
+# Playlist Cleanup Configuration
+MIN_PLAYLIST_SIZE = 15            # Minimum track count threshold (smaller playlists cleaned up)
 
 # Execution Modes
-VERBOSE = True
-DRY_RUN = False  # Live Mode: Changes will be written to Plex
-SYNC_PLAYLISTS = True
+VERBOSE = True                     # Output detailed per-track log messages
+DRY_RUN = False                    # False = Live mode (writes to Plex); True = Preview only
+SYNC_PLAYLISTS = True             # True = Sync playlists to Plex; False = Ratings sync only
 
-# UI Options
-SHOW_PLEX_INFO = True
-SHOW_RECENT_RATED = True
-SHOW_RECENT_ADDED = True
-N_RECENT_DISPLAY = 20
+# UI & Display Options
+SHOW_PLEX_INFO = True              # Display library overview statistics on startup
+SHOW_RECENT_RATED = True           # Display recently rated tracks list on startup
+SHOW_RECENT_ADDED = True           # Display recently added albums list on startup
+N_RECENT_DISPLAY = 20              # Number of recent entries to show in console startup summaries
+
 
 # Directory Paths
 # Root directory for unified music source outputs
@@ -129,6 +131,10 @@ MULTIPLE_OK = [
     "b:\\seed_archive\\music_library\\Vieux Farka Tour├⌐ & Khruangbin - Ali",
     "b:\\seed_archive\\music_library\\Young Montana - Limerence",
     "b:\\seed_archive\\music_lossy\\Yumi Zouma (2014) - Yumi Zouma",
+    "b:\\seed_archive\\music\\BADBADNOTGOOD - Late Night Tales",
+    "b:\\seed_archive\\music\\Bj",
+    "b:\\seed_archive\\music\\Glass Animals - Remixes",
+    "b:\\seed_archive\\music\\[PAMPA002] Jackmate",
 ]
 
 # Hardcoded Plex Fix Overrides (MusicBee is Master authority, ignore M3U export)
@@ -160,7 +166,18 @@ PLEX_FIX_PATHS = [
     r"B:\seed_archive\music\The Smiths - Louder Than Bombs (1987) {9 25569-2 CD} [FLAC]\12 - Heaven Knows I'm Miserable Now.flac",
     r"B:\seed_archive\music_library\Hiroshi_Yoshimura-Music_For_Nine_Post_Cards-CD-FLAC-2011-BCC\03-hiroshi_yoshimura-blink.flac",
     r"B:\seed_archive\music_library\Slowdive - Souvlaki (1994, 0777 7 88263 2 3) - [FLAC]\01 - Alison.flac",
+    r"B:\seed_archive\music_library\Bob Marley & The Wailers - Burnin' (2004 Deluxe Remaster) [FLAC]\CD1\01 - Get Up, Stand Up.flac",
+    r"B:\seed_archive\music_library\LNDN DRGS - Affiliated 2 [FLAC WEB]\02 Notes On Leases (feat. Da Underdawgz).flac",
+    r"B:\seed_archive\music_library\LNDN DRGS - Affiliated 2 [FLAC WEB]\04 Hold Up (feat. Bun B & Paul Wall).flac",
+    r"B:\seed_archive\music_library\Pink Floyd - Ummagumma (1994 Remaster) [CD FLAC]\CD1 - Live Album\01 - Astronomy Domine (2011 Remaster).flac",
+    r"B:\seed_archive\music_library\Pink Floyd - Ummagumma (1994 Remaster) [CD FLAC]\CD1 - Live Album\02 - Careful With That Axe, Eugene (2011 Remaster).flac",
+    r"B:\seed_archive\music_library\Pink Floyd - Ummagumma (1994 Remaster) [CD FLAC]\CD1 - Live Album\03 - Set The Controls For The Heart Of The Sun (2011 Remaster).flac",
+    r"B:\seed_archive\music\Bob Marley & Wailers - Legend [1990]\02 Get Up, Stand Up.flac",
+    r"B:\seed_archive\music\Bob Marley & Wailers - Legend (1984) [Remastered 2002 CD]\02 - Get Up, Stand Up.flac",
+    r"B:\seed_archive\music_library\Peter Tosh - Equal Rights (Legacy Edition) (2011) [FLAC]\CD2\05 - Fight Apartheid.flac",
+    r"B:\seed_archive\music_library\Pink Floyd - Live at Pompeii [FLAC]\06 - Set The Controls For The Heart Of The Sun.flac",
 ]
+
 
 
 def load_plex_fix_keys():
@@ -283,11 +300,12 @@ def read_musicbee_playlists(input_dir, plex_map, counters, verbose=True):
         counters['Playlist Tracks: Missing'] += missing_count
         counters['Playlist Tracks: Ignored'] += ignored_count
 
-        if len(valid_keys) > MAX_PLEX_PLAYLIST_SIZE:
+        if len(valid_keys) > MAX_PLAYLIST_SIZE:
             counters['Playlist: Skipped (Too Large)'] += 1
             if verbose:
                 print(
-                    f"    [Skip] '{playlist_name}' too large: {len(valid_keys)} tracks (Limit: {MAX_PLEX_PLAYLIST_SIZE})")
+                    f"    [Skip] '{playlist_name}' too large: {len(valid_keys)} tracks (Limit: {MAX_PLAYLIST_SIZE})")
+
         elif valid_keys:
             sync_plex_playlists[playlist_name] = valid_keys
         else:
@@ -470,8 +488,24 @@ if __name__ == "__main__":
         existing_playlists_map = {
             p.title: p for p in plex_music.get_playlists()}
         for name, keys in sync_plex_playlists.items():
+
+            if len(keys) > MAX_PLAYLIST_SIZE:
+                counters['Playlist: Skipped (Too Large)'] += 1
+                if VERBOSE:
+                    print(
+                        f"  [Skip] '{name}' ({len(keys)} tracks > {MAX_PLAYLIST_SIZE})",
+                        flush=True
+                    )
+                continue
+
+            existing_pl = existing_playlists_map.get(name)
+            if existing_pl and getattr(existing_pl, 'leafCount', None) == len(keys):
+                counters['Playlist: Skipped (Track Count Match)'] += 1
+                continue
+
+
+
             if not DRY_RUN:
-                existing_pl = existing_playlists_map.get(name)
                 t_single = time.time()
                 if plex_music.sync_playlist(name, keys, existing_playlist=existing_pl):
                     counters['Playlist: Created/Updated'] += 1
@@ -486,6 +520,7 @@ if __name__ == "__main__":
             else:
                 counters['Playlist: Dry Run Skip'] += 1
         print(f"Playlist sync finished in {time.time() - t_pl_sync:.2f}s.")
+
 
         # Playlist Cleanup
         uni.print_section('CLEANING UP SMALL PLAYLISTS')

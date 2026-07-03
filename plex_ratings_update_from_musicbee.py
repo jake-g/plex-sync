@@ -131,6 +131,43 @@ MULTIPLE_OK = [
     "b:\\seed_archive\\music_lossy\\Yumi Zouma (2014) - Yumi Zouma",
 ]
 
+# Hardcoded Plex Fix Overrides (MusicBee is Master authority, ignore M3U export)
+PLEX_FIX_PATHS = [
+    r"B:\seed_archive\music_library\Rolling Stones - Get Yer Ya-Ya's Out [FLAC]\08 - Little Queenie.flac",
+    r"B:\seed_archive\music_library\Shlohmo - Vacation EP Remixes (Boomkat Version) [FLAC_WEB]\1-The_Way_You_Do_Airhead_Remix.flac",
+    r"B:\seed_archive\music_library\Shlohmo - Vacation EP Remixes (Boomkat Version) [FLAC_WEB]\4-The_Way_You_Do_D33J_Remix.flac",
+    r"B:\seed_archive\music\The Smiths - Louder Than Bombs (1987) {9 25569-2 CD} [FLAC]\21 - Please Please Please Let Me Get What I Want.flac",
+    r"D:\Music\Library\Radiohead\KID A MNESIA\1-07 In Limbo.flac",
+    r"B:\seed_archive\music_library\Public Image Ltd. - Metal Box [1990 Edition][FLAC]\02 Memories.flac",
+    r"B:\seed_archive\music_library\The Rolling Stones - 'Get Yer Ya-Ya's Out!' The Rolling Stones in Concert (2002) [FLAC] {90052}\09 - Honky Tonk Women.flac",
+    r"B:\seed_archive\music\Slowdive - Pygmalion [1995]\07 Visions Of La.flac",
+    r"B:\seed_archive\music\The Smiths - Louder Than Bombs (1987) {9 25569-2 CD} [FLAC]\08 - Girl Afraid.flac",
+    r"B:\seed_archive\music\The Smiths - Louder Than Bombs (1987) {9 25569-2 CD} [FLAC]\18 - Back to the Old House.flac",
+    r"B:\seed_archive\music_library\Toro Y Moi (2016) - Live from Trona [Web] [flac]\02. What You Want.flac",
+    r"B:\seed_archive\music_library\Toro Y Moi (2016) - Live from Trona [Web] [flac]\11. Grown Up Calls.flac",
+    r"B:\seed_archive\music_library\Toro Y Moi (2016) - Live from Trona [Web] [flac]\12. Say That.flac",
+    r"B:\seed_archive\music_library\Toro Y Moi (2016) - Live from Trona [Web] [flac]\13. Yeah Right.flac",
+    r"B:\seed_archive\music_library\Jack White - 2016 - Acoustic Recordings 1998-2016 (XLCD826) [CD FLAC]\CD1\06 - You've Got Her In Your Pocket.flac",
+    r"B:\seed_archive\music_library\Jack White - 2016 - Acoustic Recordings 1998-2016 (XLCD826) [CD FLAC]\CD1\14 - Effect And Cause.flac",
+    r"B:\seed_archive\music_library\The Who - Meaty Beaty Big and Bouncy (CD, Anthology) 1985, (MCAD-37001 DIDX-348) US [FLAC]\03.Happy Jack.flac",
+    r"B:\seed_archive\music_library\The Who - Meaty Beaty Big and Bouncy (CD, Anthology) 1985, (MCAD-37001 DIDX-348) US [FLAC]\11.Boris the Spider.flac",
+    r"D:\Music\Library\Radiohead\KID A MNESIA\1-01 Everything in Its Right Place.flac",
+    r"D:\Music\Library\Radiohead\KID A MNESIA\2-02 Pyramid Song.flac",
+    r"D:\Music\Library\Radiohead\KID A MNESIA\2-06 Knives Out.flac",
+    r"D:\Music\Library\Radiohead\KID A MNESIA\2-09 Hunting Bears.flac",
+    r"D:\Music\Library\Howlin' Wolf\Moanin' in the Moonlight\1-01 Moanin' at Midnight.mp3",
+    r"B:\seed_archive\music_library\Nujabes - Spiritual State (2011) [CD FLAC]\04 - Spiral.flac",
+    r"B:\seed_archive\music\The Smiths - Louder Than Bombs (1987) {9 25569-2 CD} [FLAC]\12 - Heaven Knows I'm Miserable Now.flac",
+    r"B:\seed_archive\music_library\Hiroshi_Yoshimura-Music_For_Nine_Post_Cards-CD-FLAC-2011-BCC\03-hiroshi_yoshimura-blink.flac",
+    r"B:\seed_archive\music_library\Slowdive - Souvlaki (1994, 0777 7 88263 2 3) - [FLAC]\01 - Alison.flac",
+]
+
+
+def load_plex_fix_keys():
+    """Loads normalized path keys from hardcoded PLEX_FIX_PATHS."""
+    return {uni.sanitize_path_for_matching(p) for p in PLEX_FIX_PATHS}
+
+
 
 # =============================================================================
 # HELPERS
@@ -336,6 +373,12 @@ if __name__ == "__main__":
     print(f'Loaded {len(mb_df)} tracks in {time.time() - t_mb:.2f}s.')
     mb_grouped = mb_df.groupby('Path_Norm')
 
+    # Load Hardcoded Plex Fix Overrides
+    plex_fix_keys = load_plex_fix_keys()
+    if plex_fix_keys:
+        print(f'Loaded {len(plex_fix_keys)} hardcoded ignore keys from PLEX_FIX_PATHS.')
+
+
     # 6. Main Sync Loop (Ratings)
     export_musicbee_playlists = []
     uni.print_section('SYNCING RATINGS')
@@ -389,7 +432,7 @@ if __name__ == "__main__":
 
         # Conflict Resolution
         if abs(p_rating - m_rating) > 0.1:
-            if rating_key in recent_rating_keys and p_rating > 0:
+            if rating_key in recent_rating_keys and p_rating > 0 and plex_key not in plex_fix_keys:
                 # Plex is Newer -> Export M3U
                 export_musicbee_playlists.append(
                     {'Path': mb_track_data['Path'], 'Rating': p_rating})
@@ -398,16 +441,17 @@ if __name__ == "__main__":
                     print(
                         f"  [Mismatch]: Add {track_title} to rating .m3u (Plex: {p_rating} | MB: {m_rating})")
             else:
-                # MB is Newer/Master -> Overwrite Plex
+                # MB is Master -> Overwrite Plex
+                tag = 'MB Master / Plex Fix' if plex_key in plex_fix_keys else 'MB Trumps'
                 if not DRY_RUN:
                     plex_music.get_track(rating_key).rate(int(m_rating * 2))
-                    counters['Plex Updated (MB Trumps)'] += 1
+                    counters[f'Plex Updated ({tag})'] += 1
                     time.sleep(PLEX_SLEEP_TIME_S)
                 else:
-                    counters['Dry Run: MB Overwrite'] += 1
+                    counters[f'Dry Run: MB Overwrite ({tag})'] += 1
                     if VERBOSE:
                         print(
-                            f"  [DRY] MB Overwrite: {track_title} (Plex: {p_rating} -> {m_rating})")
+                            f"  [DRY] MB Overwrite ({tag}): {track_title} (Plex: {p_rating} -> {m_rating})")
         else:
             counters['Ratings Match'] += 1
             if p_rating > 0:

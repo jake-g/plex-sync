@@ -4,3 +4,6 @@ requests
 fuzzywuzzy
 rapidfuzz
 python-Levenshtein
+matplotlib
+numpy
+seaborn

@@ -15,6 +15,7 @@ from auth import PLEX_SERVER_URL
 from auth import PLEX_TOKEN
 from plex_lib import PlexMusic
 
+
 # =============================================================================
 # CONFIGURATION & CONSTANTS
 # =============================================================================
@@ -53,19 +54,20 @@ MUSICBEE_LIBRARY_TSV = os.path.join(ASSETS_DIR, 'musicbee_library.tsv')
 MUSICBEE_INBOX_TSV = os.path.join(ASSETS_DIR, 'musicbee_inbox.tsv')
 
 # Input: Playlists exported from MusicBee
-MUSICBEE_PLAYLISTS_DIR = 'D:\\Music\\MusicBee\\mb_playlists'
+MUSICBEE_PLAYLISTS_DIR = 'B:\\Music\\MusicBee\\mb_playlists'
 
 # Output: Ratings exported from Plex
 RATING_EXPORT_DIR = os.path.join(OUTPUT_DIR, 'm3u')
 
 # Ignore List: Paths in MusicBee/M3Us that are deliberately NOT in Plex.
 MB_PATHS_TO_IGNORE = [
-    'D:\\Music\\Unsorted',
+    'B:\\Music\\Unsorted',
 ]
 
 # Mapping: Converts Linux/NUC paths (Plex) to Windows/PC paths (MusicBee)
 NUC_PC_PREFIX_MAP = {
     '\\data\\seed_archive\\': 'B:\\seed_archive\\',
+    '\\mnt\\music\\': 'B:\\Music\\',
     '\\mnt\\music\\': 'D:\\Music\\',
 }
 
@@ -75,7 +77,7 @@ MULTIPLE_OK = [
     "b:\\seed_archive\\music\\∩╝Æ∩╝ÿ∩╝æ∩╝ö - µû░πüùπüäµùÑπü«Φ¬òτöƒ",
     "b:\\seed_archive\\music_library\\Altin G├╝n - A┼ƒk",
     "b:\\seed_archive\\music_library\\Andre╠ü 3000 - New Blue Sun",
-    "d:\\Music\\Library\\Aphex Twin\\Selected Ambient Works, Volume II",
+    "b:\\Music\\Library\\Aphex Twin\\Selected Ambient Works, Volume II",
     "b:\\seed_archive\\music\\Azmari - Sam─ü'─½",
     "b:\\seed_archive\\music\\A Winged Victory for the Sullen",
     "b:\\seed_archive\\music\\Babyshambles - Down In Albion",
@@ -143,7 +145,7 @@ PLEX_FIX_PATHS = [
     r"B:\seed_archive\music_library\Shlohmo - Vacation EP Remixes (Boomkat Version) [FLAC_WEB]\1-The_Way_You_Do_Airhead_Remix.flac",
     r"B:\seed_archive\music_library\Shlohmo - Vacation EP Remixes (Boomkat Version) [FLAC_WEB]\4-The_Way_You_Do_D33J_Remix.flac",
     r"B:\seed_archive\music\The Smiths - Louder Than Bombs (1987) {9 25569-2 CD} [FLAC]\21 - Please Please Please Let Me Get What I Want.flac",
-    r"D:\Music\Library\Radiohead\KID A MNESIA\1-07 In Limbo.flac",
+    r"B:\Music\Library\Radiohead\KID A MNESIA\1-07 In Limbo.flac",
     r"B:\seed_archive\music_library\Public Image Ltd. - Metal Box [1990 Edition][FLAC]\02 Memories.flac",
     r"B:\seed_archive\music_library\The Rolling Stones - 'Get Yer Ya-Ya's Out!' The Rolling Stones in Concert (2002) [FLAC] {90052}\09 - Honky Tonk Women.flac",
     r"B:\seed_archive\music\Slowdive - Pygmalion [1995]\07 Visions Of La.flac",
@@ -157,11 +159,11 @@ PLEX_FIX_PATHS = [
     r"B:\seed_archive\music_library\Jack White - 2016 - Acoustic Recordings 1998-2016 (XLCD826) [CD FLAC]\CD1\14 - Effect And Cause.flac",
     r"B:\seed_archive\music_library\The Who - Meaty Beaty Big and Bouncy (CD, Anthology) 1985, (MCAD-37001 DIDX-348) US [FLAC]\03.Happy Jack.flac",
     r"B:\seed_archive\music_library\The Who - Meaty Beaty Big and Bouncy (CD, Anthology) 1985, (MCAD-37001 DIDX-348) US [FLAC]\11.Boris the Spider.flac",
-    r"D:\Music\Library\Radiohead\KID A MNESIA\1-01 Everything in Its Right Place.flac",
-    r"D:\Music\Library\Radiohead\KID A MNESIA\2-02 Pyramid Song.flac",
-    r"D:\Music\Library\Radiohead\KID A MNESIA\2-06 Knives Out.flac",
-    r"D:\Music\Library\Radiohead\KID A MNESIA\2-09 Hunting Bears.flac",
-    r"D:\Music\Library\Howlin' Wolf\Moanin' in the Moonlight\1-01 Moanin' at Midnight.mp3",
+    r"B:\Music\Library\Radiohead\KID A MNESIA\1-01 Everything in Its Right Place.flac",
+    r"B:\Music\Library\Radiohead\KID A MNESIA\2-02 Pyramid Song.flac",
+    r"B:\Music\Library\Radiohead\KID A MNESIA\2-06 Knives Out.flac",
+    r"B:\Music\Library\Radiohead\KID A MNESIA\2-09 Hunting Bears.flac",
+    r"B:\Music\Library\Howlin' Wolf\Moanin' in the Moonlight\1-01 Moanin' at Midnight.mp3",
     r"B:\seed_archive\music_library\Nujabes - Spiritual State (2011) [CD FLAC]\04 - Spiral.flac",
     r"B:\seed_archive\music\The Smiths - Louder Than Bombs (1987) {9 25569-2 CD} [FLAC]\12 - Heaven Knows I'm Miserable Now.flac",
     r"B:\seed_archive\music_library\Hiroshi_Yoshimura-Music_For_Nine_Post_Cards-CD-FLAC-2011-BCC\03-hiroshi_yoshimura-blink.flac",
@@ -546,4 +548,5 @@ if __name__ == "__main__":
             fname = f"plex_ratings_{rating}.m3u"
             uni.save_m3u(os.path.join(RATING_EXPORT_DIR, fname), group['Path'].tolist())
             print(f"  -> {fname}: {len(group)} tracks")
+
     print(f'\nDone in {(time.time() - t_total)/60:0.1f}m.')

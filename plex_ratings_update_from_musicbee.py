@@ -68,7 +68,6 @@ MB_PATHS_TO_IGNORE = [
 NUC_PC_PREFIX_MAP = {
     '\\data\\seed_archive\\': 'B:\\seed_archive\\',
     '\\mnt\\music\\': 'B:\\Music\\',
-    '\\mnt\\music\\': 'D:\\Music\\',
 }
 
 # Whitelist: Folders where duplicate albums/tracks are allowed

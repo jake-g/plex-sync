@@ -54,130 +54,16 @@ MUSICBEE_LIBRARY_TSV = os.path.join(ASSETS_DIR, 'musicbee_library.tsv')
 MUSICBEE_INBOX_TSV = os.path.join(ASSETS_DIR, 'musicbee_inbox.tsv')
 
 # Input: Playlists exported from MusicBee
-MUSICBEE_PLAYLISTS_DIR = 'B:\\Music\\MusicBee\\mb_playlists'
+try:
+    from local_paths import MUSICBEE_PLAYLISTS_DIR, MB_PATHS_TO_IGNORE, NUC_PC_PREFIX_MAP, MULTIPLE_OK, PLEX_FIX_PATHS
+except ImportError:
+    MUSICBEE_PLAYLISTS_DIR = ''
+    MB_PATHS_TO_IGNORE = []
+    NUC_PC_PREFIX_MAP = {}
+    MULTIPLE_OK = []
+    PLEX_FIX_PATHS = []
 
 # Output: Ratings exported from Plex
-RATING_EXPORT_DIR = os.path.join(OUTPUT_DIR, 'm3u')
-
-# Ignore List: Paths in MusicBee/M3Us that are deliberately NOT in Plex.
-MB_PATHS_TO_IGNORE = [
-    'B:\\Music\\Unsorted',
-]
-
-# Mapping: Converts Linux/NUC paths (Plex) to Windows/PC paths (MusicBee)
-NUC_PC_PREFIX_MAP = {
-    '\\data\\seed_archive\\': 'B:\\seed_archive\\',
-    '\\mnt\\music\\': 'B:\\Music\\',
-}
-
-# Whitelist: Folders where duplicate albums/tracks are allowed
-MULTIPLE_OK = [
-    "b:\\seed_archive\\music_library\\1000 Gecs",
-    "b:\\seed_archive\\music\\∩╝Æ∩╝ÿ∩╝æ∩╝ö - µû░πüùπüäµùÑπü«Φ¬òτöƒ",
-    "b:\\seed_archive\\music_library\\Altin G├╝n - A┼ƒk",
-    "b:\\seed_archive\\music_library\\Andre╠ü 3000 - New Blue Sun",
-    "b:\\Music\\Library\\Aphex Twin\\Selected Ambient Works, Volume II",
-    "b:\\seed_archive\\music\\Azmari - Sam─ü'─½",
-    "b:\\seed_archive\\music\\A Winged Victory for the Sullen",
-    "b:\\seed_archive\\music\\Babyshambles - Down In Albion",
-    "b:\\seed_archive\\music_library\\BADBADNOTGOOD - Late Night Tales",
-    "b:\\seed_archive\\music\\LateNightTales - Belle & Sebastian Vol. 2",
-    "b:\\seed_archive\\music_library\\Bj├╢rk - Debut",
-    "b:\\seed_archive\\music_library\\Bj├╢rk - fossora",
-    "b:\\seed_archive\\music_library\\Bj├╢rk -2015- Vulnicura",
-    "b:\\seed_archive\\music_library\\Boris - Smile",
-    "b:\\seed_archive\\music_library\\Burzum - Filosofem",
-    "b:\\seed_archive\\music\\Dauwd - 2013 - Heat Division Remixes",
-    "b:\\seed_archive\\music_library\\David Bowie - Heroes",
-    "b:\\seed_archive\\music_library\\Django Reinhardt - Djangology",
-    "b:\\seed_archive\\music_library\\Fleet Foxes - Crack-Up",
-    "b:\\seed_archive\\music\\Fran├ºoise Hardy - Comment te dire adieu",
-    "b:\\seed_archive\\music_library\\Glass Animals - Remixes",
-    "b:\\seed_archive\\music\\Helado Negro - Far In",
-    "b:\\seed_archive\\music_library\\Hot Sugar - Seductive Nightmares 2",
-    "b:\\seed_archive\\music_library\\Janelle Mon├íe - Dirty Computer",
-    "b:\\seed_archive\\music_library\\Jean Michel Jarre - 1976 - Oxygene",
-    "b:\\seed_archive\\music_library\\Keith Jarrett - The Ko╠êln Concert",
-    "b:\\seed_archive\\music\\Kruder & Dorfmeister - The K&D Sessions",
-    "b:\\seed_archive\\music\\L'Impe╠üratrice - Tako Tsubo",
-    "b:\\seed_archive\\music\\Laryssa Kim - Contezza",
-    "b:\\seed_archive\\music_library\\The Lions - Soul Riot",
-    "b:\\seed_archive\\music\\Los Lobos - How Will the Wolf Survive",
-    "b:\\seed_archive\\music_lossy\\Luc Ferrari - Presque Rien",
-    "b:\\seed_archive\\music_library\\Lusine - Sensorimotor",
-    "b:\\seed_archive\\music\\Lykke Li - So Sad So Sexy",
-    "b:\\seed_archive\\music\\Mach-Hommy - Pray For Haiti",
-    "b:\\seed_archive\\music_library\\Madlib - Sound Ancestors",
-    "b:\\seed_archive\\music\\Magma - Me╠êkani╠êk De╠êstrukti╠êw╠Ç Ko╠êmmando╠êh",
-    "b:\\seed_archive\\music_library\\Nicolas Jaar - Cenizas",
-    "b:\\seed_archive\\music_library\\Nicolas Jaar - Pomegranates",
-    "b:\\seed_archive\\music_library\\Nosaj Thing - Continua",
-    "b:\\seed_archive\\music\\ßäæßàíßäàßàíßå½ (Parannoul)",
-    "b:\\seed_archive\\music_library\\Plat - Compulsion",
-    "b:\\seed_archive\\music\\Potatoi - Toy",
-    "b:\\seed_archive\\music\\Rammstein - Zeit",
-    "b:\\seed_archive\\music_library\\Ricky Eat Acid - You get sick",
-    "b:\\seed_archive\\music_library\\R├╢yksopp - Profound Mysteries",
-    "b:\\seed_archive\\music_library\\Santana - Supernatural",
-    "b:\\seed_archive\\music\\ScHoolboy Q - Setbacks",
-    "b:\\seed_archive\\music_library\\Skinshape - Umoja",
-    "b:\\seed_archive\\music\\Sofia Kourtesis - Madres",
-    "b:\\seed_archive\\music_library\\Sonic Youth - 1992 - Dirty",
-    "b:\\seed_archive\\music_library\\Stan Getz - 1976 - The Best of Two Worlds",
-    "b:\\seed_archive\\music_library\\Stan Getz & Jo├úo Gilberto - Getz-Gilberto",
-    "b:\\seed_archive\\music\\Sunn O))) - Monoliths & Dimensions",
-    "b:\\seed_archive\\music\\Takeuchi, Mariya - Variety",
-    "b:\\seed_archive\\music_library\\Thriftworks - Rainmaker",
-    "b:\\seed_archive\\music_library\\Todd Terje - It's Album Time",
-    "b:\\seed_archive\\music_library\\Vieux Farka Tour├⌐ & Khruangbin - Ali",
-    "b:\\seed_archive\\music_library\\Young Montana - Limerence",
-    "b:\\seed_archive\\music_lossy\\Yumi Zouma (2014) - Yumi Zouma",
-    "b:\\seed_archive\\music\\BADBADNOTGOOD - Late Night Tales",
-    "b:\\seed_archive\\music\\Bj",
-    "b:\\seed_archive\\music\\Glass Animals - Remixes",
-    "b:\\seed_archive\\music\\[PAMPA002] Jackmate",
-]
-
-# Hardcoded Plex Fix Overrides (MusicBee is Master authority, ignore M3U export)
-PLEX_FIX_PATHS = [
-    r"B:\seed_archive\music_library\Rolling Stones - Get Yer Ya-Ya's Out [FLAC]\08 - Little Queenie.flac",
-    r"B:\seed_archive\music_library\Shlohmo - Vacation EP Remixes (Boomkat Version) [FLAC_WEB]\1-The_Way_You_Do_Airhead_Remix.flac",
-    r"B:\seed_archive\music_library\Shlohmo - Vacation EP Remixes (Boomkat Version) [FLAC_WEB]\4-The_Way_You_Do_D33J_Remix.flac",
-    r"B:\seed_archive\music\The Smiths - Louder Than Bombs (1987) {9 25569-2 CD} [FLAC]\21 - Please Please Please Let Me Get What I Want.flac",
-    r"B:\Music\Library\Radiohead\KID A MNESIA\1-07 In Limbo.flac",
-    r"B:\seed_archive\music_library\Public Image Ltd. - Metal Box [1990 Edition][FLAC]\02 Memories.flac",
-    r"B:\seed_archive\music_library\The Rolling Stones - 'Get Yer Ya-Ya's Out!' The Rolling Stones in Concert (2002) [FLAC] {90052}\09 - Honky Tonk Women.flac",
-    r"B:\seed_archive\music\Slowdive - Pygmalion [1995]\07 Visions Of La.flac",
-    r"B:\seed_archive\music\The Smiths - Louder Than Bombs (1987) {9 25569-2 CD} [FLAC]\08 - Girl Afraid.flac",
-    r"B:\seed_archive\music\The Smiths - Louder Than Bombs (1987) {9 25569-2 CD} [FLAC]\18 - Back to the Old House.flac",
-    r"B:\seed_archive\music_library\Toro Y Moi (2016) - Live from Trona [Web] [flac]\02. What You Want.flac",
-    r"B:\seed_archive\music_library\Toro Y Moi (2016) - Live from Trona [Web] [flac]\11. Grown Up Calls.flac",
-    r"B:\seed_archive\music_library\Toro Y Moi (2016) - Live from Trona [Web] [flac]\12. Say That.flac",
-    r"B:\seed_archive\music_library\Toro Y Moi (2016) - Live from Trona [Web] [flac]\13. Yeah Right.flac",
-    r"B:\seed_archive\music_library\Jack White - 2016 - Acoustic Recordings 1998-2016 (XLCD826) [CD FLAC]\CD1\06 - You've Got Her In Your Pocket.flac",
-    r"B:\seed_archive\music_library\Jack White - 2016 - Acoustic Recordings 1998-2016 (XLCD826) [CD FLAC]\CD1\14 - Effect And Cause.flac",
-    r"B:\seed_archive\music_library\The Who - Meaty Beaty Big and Bouncy (CD, Anthology) 1985, (MCAD-37001 DIDX-348) US [FLAC]\03.Happy Jack.flac",
-    r"B:\seed_archive\music_library\The Who - Meaty Beaty Big and Bouncy (CD, Anthology) 1985, (MCAD-37001 DIDX-348) US [FLAC]\11.Boris the Spider.flac",
-    r"B:\Music\Library\Radiohead\KID A MNESIA\1-01 Everything in Its Right Place.flac",
-    r"B:\Music\Library\Radiohead\KID A MNESIA\2-02 Pyramid Song.flac",
-    r"B:\Music\Library\Radiohead\KID A MNESIA\2-06 Knives Out.flac",
-    r"B:\Music\Library\Radiohead\KID A MNESIA\2-09 Hunting Bears.flac",
-    r"B:\Music\Library\Howlin' Wolf\Moanin' in the Moonlight\1-01 Moanin' at Midnight.mp3",
-    r"B:\seed_archive\music_library\Nujabes - Spiritual State (2011) [CD FLAC]\04 - Spiral.flac",
-    r"B:\seed_archive\music\The Smiths - Louder Than Bombs (1987) {9 25569-2 CD} [FLAC]\12 - Heaven Knows I'm Miserable Now.flac",
-    r"B:\seed_archive\music_library\Hiroshi_Yoshimura-Music_For_Nine_Post_Cards-CD-FLAC-2011-BCC\03-hiroshi_yoshimura-blink.flac",
-    r"B:\seed_archive\music_library\Slowdive - Souvlaki (1994, 0777 7 88263 2 3) - [FLAC]\01 - Alison.flac",
-    r"B:\seed_archive\music_library\Bob Marley & The Wailers - Burnin' (2004 Deluxe Remaster) [FLAC]\CD1\01 - Get Up, Stand Up.flac",
-    r"B:\seed_archive\music_library\LNDN DRGS - Affiliated 2 [FLAC WEB]\02 Notes On Leases (feat. Da Underdawgz).flac",
-    r"B:\seed_archive\music_library\LNDN DRGS - Affiliated 2 [FLAC WEB]\04 Hold Up (feat. Bun B & Paul Wall).flac",
-    r"B:\seed_archive\music_library\Pink Floyd - Ummagumma (1994 Remaster) [CD FLAC]\CD1 - Live Album\01 - Astronomy Domine (2011 Remaster).flac",
-    r"B:\seed_archive\music_library\Pink Floyd - Ummagumma (1994 Remaster) [CD FLAC]\CD1 - Live Album\02 - Careful With That Axe, Eugene (2011 Remaster).flac",
-    r"B:\seed_archive\music_library\Pink Floyd - Ummagumma (1994 Remaster) [CD FLAC]\CD1 - Live Album\03 - Set The Controls For The Heart Of The Sun (2011 Remaster).flac",
-    r"B:\seed_archive\music\Bob Marley & Wailers - Legend [1990]\02 Get Up, Stand Up.flac",
-    r"B:\seed_archive\music\Bob Marley & Wailers - Legend (1984) [Remastered 2002 CD]\02 - Get Up, Stand Up.flac",
-    r"B:\seed_archive\music_library\Peter Tosh - Equal Rights (Legacy Edition) (2011) [FLAC]\CD2\05 - Fight Apartheid.flac",
-    r"B:\seed_archive\music_library\Pink Floyd - Live at Pompeii [FLAC]\06 - Set The Controls For The Heart Of The Sun.flac",
-]
 
 
 

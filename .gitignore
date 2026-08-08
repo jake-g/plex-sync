@@ -5,3 +5,4 @@ logs/
 *.log
 .DS_Store
 auth.py
+local_paths.py

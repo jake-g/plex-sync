@@ -41,6 +41,17 @@ PLEX_TOKEN = 'your_token'
 PLEX_SERVER_URL = 'http://your_server:port'
 ```
 
+## Setup Requirements
+
+### MusicBee Export Plugin
+
+The synchronization relies on exported databases and playlists from your MusicBee library. 
+
+To export your library as a CSV/TSV, you must install the **[Additional Tagging & Reporting Tools](https://getmusicbee.com/forum/index.php?topic=3833.0)** plugin by boroda. 
+This plugin adds a "Library reports" command, which allows you to export your entire database as a CSV/TSV file (e.g., `musicbee_library.tsv`).
+
+You will also need to use MusicBee's playlist export ability to export your playlists as `.m3u` or `.csv` files so the script can parse them.
+
 ## Setup
 
 1. Install dependencies:

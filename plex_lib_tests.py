@@ -2,9 +2,16 @@
 
 from datetime import datetime
 from datetime import timedelta
+import os
+import sys
 import unittest
 from unittest.mock import MagicMock
 from unittest.mock import patch
+
+# Ensure plex directory is in sys.path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+  sys.path.insert(0, SCRIPT_DIR)
 
 import plex_lib
 
@@ -112,7 +119,9 @@ class TestPlexMusicUtils(unittest.TestCase):
     mock_playlist2.title = "Playlist 2"
     mock_playlist2.ratingKey = 456
 
-    plex_music.get_playlists = MagicMock(return_value=[mock_playlist1, mock_playlist2])
+    plex_music.get_playlists = MagicMock(
+        return_value=[mock_playlist1, mock_playlist2]
+    )
 
     # Test found
     self.assertEqual(plex_music.get_playlist_id_by_name("Playlist 1"), 123)

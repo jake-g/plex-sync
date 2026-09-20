@@ -72,17 +72,13 @@ class PlexMusic:
                 return playlist.ratingKey
         return None
 
-    def get_playlist_tracks(self, playlist_id: int) -> List[Track]:
-        """Fetches the tracks from a specified playlist.
-
-        Args:
-            playlist_id (int): The ID of the playlist.
-
-        Returns:
-            List[Track]: A list of plexapi Track objects in the playlist.
-        """
-        playlist = self.server.playlist(playlist_id)
-        return playlist.items()
+    def get_playlist_tracks(self, playlist_id: Union[int, str]) -> List[Track]:
+        """Fetches the tracks from a specified playlist by ID or title."""
+        try:
+            playlist = self.server.playlist(playlist_id)
+            return playlist.items()
+        except Exception:
+            return []
 
     def cleanup_small_playlists(self, min_size: int, dry_run: bool = False) -> int:
         """
@@ -116,31 +112,68 @@ class PlexMusic:
                         print(f"    [!] Failed to delete '{pl.title}': {e}")
         return deleted_count
 
-    def get_tracks(self, limit: Optional[int] = None) -> List[Dict]:
-        """Fetches and caches essential track metadata from the music library.
+    def get_tracks(
+        self,
+        limit: Optional[int] = None,
+        batch_size: int = 5000,
+        progress: bool = True,
+    ) -> List[Dict]:
+        """Fetches track metadata, paginating to avoid server timeouts.
+
+        The full library (~95k tracks) is too large for Plex to serialize in a
+        single response, so results are pulled in chunks. Only complete fetches
+        are cached.
 
         Args:
-            limit (Optional[int], optional): Maximum number of tracks to fetch.
-                                           Defaults to None.
+            limit: Maximum number of tracks to fetch (None = all).
+            batch_size: Page size used for each request.
+            progress: Whether to print progress while paginating.
 
         Returns:
-            List[Dict]: A list of dictionaries containing essential track metadata.
+            List of track metadata dictionaries.
         """
-        if self._tracks is None:
-            # Construct raw URL for fast metadata fetch (avoids overhead of PlexAPI objects)
-            url = (
-                f"{self.music._server._baseurl}/library/sections/"
-                f"{self.music.key}/all?type=10&X-Plex-Token="
-                f"{self.music._server._token}"
-            )
-            if limit:
-                url += f"&containerSize={limit}"
+        if self._tracks is not None:
+            return self._tracks[:limit] if limit else self._tracks
 
-            headers = {'Accept': 'application/json'}
-            response = requests.get(url, headers=headers)
+        url = (
+            f"{self.music._server._baseurl}/library/sections/"
+            f"{self.music.key}/all"
+        )
+        headers = {'Accept': 'application/json'}
+        page_size = min(batch_size, limit) if limit else batch_size
+
+        tracks: List[Dict] = []
+        total = None
+        while True:
+            params = {
+                'type': '10',
+                'X-Plex-Token': self.music._server._token,
+                'X-Plex-Container-Start': len(tracks),
+                'X-Plex-Container-Size': page_size,
+            }
+            response = requests.get(
+                url, params=params, headers=headers, timeout=60
+            )
             response.raise_for_status()
-            self._tracks = response.json()['MediaContainer']['Metadata']
-        return self._tracks
+            container = response.json().get('MediaContainer', {})
+            total = container.get('totalSize', 0) if total is None else total
+            batch = container.get('Metadata', [])
+            tracks.extend(batch)
+
+            if progress and total:
+                pct = min(100.0, len(tracks) / total * 100)
+                print(
+                    f'  [Plex] Fetched {len(tracks)}/{total} tracks '
+                    f'({pct:.1f}%)',
+                    flush=True,
+                )
+            if len(batch) < page_size or (limit and len(tracks) >= limit):
+                break
+
+        # Only cache a complete library fetch to avoid serving truncated data.
+        if not limit:
+            self._tracks = tracks
+        return tracks[:limit] if limit else tracks
 
     def get_track(self, rating_key: str) -> Track:
         """Retrieves a plexapi.audio.Track object using its rating key.
@@ -154,20 +187,37 @@ class PlexMusic:
         return self.music.fetchItem(f'/library/metadata/{rating_key}')
 
     def get_recently_rated_tracks(self, limit: int = 100) -> List[Dict]:
-        """Filters and sorts cached track metadata by lastRatedAt.
+        """Fetches the most recently rated tracks using a server-side sort.
+
+        Sorting server-side avoids pulling the entire library just to find the
+        newest ratings. Errors are intentionally not swallowed: these keys guard
+        recent Plex ratings from being overwritten by MusicBee.
 
         Args:
-            limit (int, optional): Maximum number of tracks to return. Defaults to 100.
+            limit: Maximum number of tracks to return.
 
         Returns:
-            List[Dict]: A list of dictionaries of recently rated track metadata.
+            List of recently rated track metadata dictionaries.
         """
-        rated_tracks = [
-            track for track in self.get_tracks() if 'lastRatedAt' in track
-        ]
-        return sorted(
-            rated_tracks, key=lambda x: x['lastRatedAt'], reverse=True
-        )[:limit]
+        url = (
+            f"{self.music._server._baseurl}/library/sections/"
+            f"{self.music.key}/all"
+        )
+        params = {
+            'type': '10',
+            'sort': 'lastRatedAt:desc',
+            'X-Plex-Token': self.music._server._token,
+            'X-Plex-Container-Start': 0,
+            'X-Plex-Container-Size': limit,
+        }
+        response = requests.get(
+            url, params=params, headers={'Accept': 'application/json'},
+            timeout=30
+        )
+        response.raise_for_status()
+        tracks = response.json().get('MediaContainer', {}).get('Metadata', [])
+        # Unrated tracks sort last; drop them so the guard list stays accurate.
+        return [t for t in tracks if 'lastRatedAt' in t]
 
     def track_to_dict(self, track: Track) -> Dict:
         """Converts a plexapi Track object to a dictionary."""

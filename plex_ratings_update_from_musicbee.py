@@ -43,8 +43,11 @@ from local_paths import (
 # =============================================================================
 # CONFIGURATION & CONSTANTS
 # =============================================================================
+# Force UTF-8 for unicode track titles and line buffering so progress streams
+# live when piped (e.g. `python ... | Tee-Object`) instead of stalling in a
+# block buffer until the run finishes.
 if hasattr(sys.stdout, 'reconfigure'):
-  sys.stdout.reconfigure(encoding='utf-8')
+  sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
 
 # Plex Library Configuration
 PLEX_LIBRARY_NAME = 'Music'  # Name of target Plex music library section
@@ -553,5 +556,24 @@ def main():
 
 
 if __name__ == '__main__':
+  import argparse
+  parser = argparse.ArgumentParser(
+      description='Sync ratings between MusicBee and Plex.'
+  )
+  parser.add_argument(
+      '--dry-run',
+      action='store_true',
+      help='Preview changes without writing to Plex.',
+  )
+  parser.add_argument(
+      '--no-playlists',
+      action='store_true',
+      help='Skip playlist synchronization.',
+  )
+  args = parser.parse_args()
+  if args.dry_run:
+    DRY_RUN = True
+  if args.no_playlists:
+    SYNC_PLAYLISTS = False
   main()
 

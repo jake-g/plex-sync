@@ -466,9 +466,10 @@ def main():
       if (
           rating_key in recent_rating_keys
           and p_rating > 0
+          and p_rating > m_rating
           and plex_key not in plex_fix_keys
       ):
-        # Plex is Newer -> Export M3U
+        # Plex has a higher/newer rating -> Export M3U for MusicBee import
         export_musicbee_playlists.append(
             {'Path': mb_track_data['Path'], 'Rating': p_rating}
         )

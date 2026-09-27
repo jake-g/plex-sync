@@ -278,7 +278,7 @@ class TestRatingSyncLogic(unittest.TestCase):
     mock_track_item.rate.assert_called_with(0)
 
   def test_recent_plex_rating_exports_to_m3u(self):
-    """Verifies that recently rated Plex tracks are exported to M3U."""
+    """Verifies that recently rated Plex tracks with higher rating export to M3U."""
     recent_rating_keys = {'777'}
     plex_fix_keys = set()
     export_musicbee_playlists = []
@@ -293,6 +293,7 @@ class TestRatingSyncLogic(unittest.TestCase):
       if (
           rating_key in recent_rating_keys
           and p_rating > 0
+          and p_rating > mb_rating
           and plex_key not in plex_fix_keys
       ):
         export_musicbee_playlists.append(
@@ -305,6 +306,41 @@ class TestRatingSyncLogic(unittest.TestCase):
         r'B:\Music\Artist\Album\01 Track.flac',
     )
     self.assertEqual(export_musicbee_playlists[0]['Rating'], 4.5)
+
+  def test_plex_downgrade_does_not_export_to_m3u(self):
+    """Verifies lower Plex rating does not downgrade higher MusicBee master rating."""
+    recent_rating_keys = {'777'}
+    plex_fix_keys = set()
+    export_musicbee_playlists = []
+    mock_plex_music = MagicMock()
+    mock_track_item = MagicMock()
+    mock_plex_music.get_track.return_value = mock_track_item
+
+    rating_key = '777'
+    p_rating = 3.0
+    mb_rating = 3.5  # MusicBee has higher master rating
+    plex_key = 'b music artist album 01 track'
+    mb_track_data = {'Path': r'B:\Music\Artist\Album\01 Track.flac'}
+
+    if abs(p_rating - mb_rating) > 0.1:
+      if (
+          rating_key in recent_rating_keys
+          and p_rating > 0
+          and p_rating > mb_rating
+          and plex_key not in plex_fix_keys
+      ):
+        export_musicbee_playlists.append(
+            {'Path': mb_track_data['Path'], 'Rating': p_rating}
+        )
+      else:
+        # MusicBee is master -> overwrites Plex
+        mock_plex_music.get_track(rating_key).rate(int(mb_rating * 2))
+
+    # Should NOT export to M3U
+    self.assertEqual(len(export_musicbee_playlists), 0)
+    # Should overwrite Plex with MusicBee's 3.5 rating (7 on Plex scale)
+    mock_plex_music.get_track.assert_called_with('777')
+    mock_track_item.rate.assert_called_with(7)
 
 
 class TestWhitelistAndFixOverrides(unittest.TestCase):

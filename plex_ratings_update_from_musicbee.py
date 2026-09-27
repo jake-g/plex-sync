@@ -7,11 +7,11 @@ Handles two-way rating synchronization:
 - Synchronizes MusicBee M3U playlists to Plex.
 """
 
-from collections import defaultdict
 import os
 import re
 import sys
 import time
+from collections import defaultdict
 from typing import Any, Dict, List, Optional, Set
 
 import pandas as pd
@@ -27,18 +27,14 @@ UNIFIED_DIR = os.path.abspath(
 if UNIFIED_DIR not in sys.path:
   sys.path.insert(0, UNIFIED_DIR)
 
-import unify_lib as uni
+# isort: split
 from auth import PLEX_SERVER_URL, PLEX_TOKEN
+from local_paths import (MB_PATHS_TO_IGNORE, MULTIPLE_OK,
+                         MUSICBEE_PLAYLISTS_DIR, NUC_PC_PREFIX_MAP,
+                         PLEX_FIX_PATHS)
 from plex_lib import PlexMusic
 
-from local_paths import (
-    MB_PATHS_TO_IGNORE,
-    MULTIPLE_OK,
-    MUSICBEE_PLAYLISTS_DIR,
-    NUC_PC_PREFIX_MAP,
-    PLEX_FIX_PATHS,
-)
-
+import unify_lib as uni
 
 # =============================================================================
 # CONFIGURATION & CONSTANTS
@@ -174,13 +170,15 @@ def is_absolute_pc_path(path_str: str) -> bool:
   )
 
 
+MULTIPLE_OK_SLUGS = tuple(
+    uni.slugify(ok, strip_non_alphanum=True) for ok in MULTIPLE_OK
+)
+
+
 def is_whitelisted(path: str) -> bool:
   """Checks if a path is in the allowed duplicate whitelist."""
   clean_path = uni.slugify(path, strip_non_alphanum=True)
-  for ok in MULTIPLE_OK:
-    if clean_path.startswith(uni.slugify(ok, strip_non_alphanum=True)):
-      return True
-  return False
+  return clean_path.startswith(MULTIPLE_OK_SLUGS)
 
 
 def read_musicbee_playlists(
@@ -188,6 +186,7 @@ def read_musicbee_playlists(
     plex_map: Dict[str, Dict[str, Any]],
     counters: Dict[str, int],
     verbose: bool = True,
+    min_size: int = MIN_PLAYLIST_SIZE,
 ) -> Dict[str, List[str]]:
   """Scans directory for M3U files, resolves paths against plex_map.
 
@@ -199,6 +198,7 @@ def read_musicbee_playlists(
     plex_map: Mapping of sanitized file paths to Plex track info.
     counters: Tracking dictionary for sync statistics.
     verbose: Whether to print detailed playlist processing logs.
+    min_size: Minimum valid tracks required to include a playlist.
 
   Returns:
     Dictionary mapping playlist title to list of Plex ratingKey IDs.
@@ -224,6 +224,7 @@ def read_musicbee_playlists(
   ]
 
   print(f"Found {len(m3u_files)} playlists. Resolving paths...", flush=True)
+  ignore_prefixes = tuple(p.lower() for p in MB_PATHS_TO_IGNORE)
 
   for filepath in m3u_files:
     playlist_name = os.path.splitext(os.path.basename(filepath))[0]
@@ -246,13 +247,8 @@ def read_musicbee_playlists(
         full_pc_path = os.path.normpath(raw_path)
 
       # 2. Check Ignore List
-      is_ignored = False
-      for ignore_path in MB_PATHS_TO_IGNORE:
-        if full_pc_path.lower().startswith(ignore_path.lower()):
-          ignored_count += 1
-          is_ignored = True
-          break
-      if is_ignored:
+      if ignore_prefixes and full_pc_path.lower().startswith(ignore_prefixes):
+        ignored_count += 1
         continue
 
       # 3. Lookup in Plex Map
@@ -275,10 +271,13 @@ def read_musicbee_playlists(
             f"    [Skip] '{playlist_name}' too large: {len(valid_keys)} tracks "
             f"(Limit: {MAX_PLAYLIST_SIZE})"
         )
-    elif valid_keys:
-      sync_plex_playlists[playlist_name] = valid_keys
+    elif len(valid_keys) < min_size:
+      if valid_keys:
+        counters['Playlist: Skipped (Too Small)'] += 1
+      else:
+        counters['Playlist: Skipped (Empty/All Ignored)'] += 1
     else:
-      counters['Playlist: Skipped (Empty/All Ignored)'] += 1
+      sync_plex_playlists[playlist_name] = valid_keys
 
     if verbose:
       info = f"'{playlist_name}' -> {len(valid_keys)} found"
@@ -294,6 +293,35 @@ def read_musicbee_playlists(
 
   print(f"Playlist processing finished in {time.time() - t_start:.2f}s.")
   return sync_plex_playlists
+
+
+def build_mb_path_lookup(mb_df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
+  """Builds an O(1) lookup mapping normalized path to first row and count.
+
+  Replaces per-track `mb_grouped.get_group(plex_key)` and `.iloc[0]` calls
+  across 95,000+ Plex tracks with a single linear pass over `mb_df`.
+
+  Args:
+    mb_df: Standardized MusicBee DataFrame with 'Path' and 'Rating' columns.
+
+  Returns:
+    Dictionary mapping normalized path key to {'Path', 'Rating', 'count'}.
+  """
+  lookup: Dict[str, Dict[str, Any]] = {}
+  paths = mb_df['Path'].tolist()
+  ratings = mb_df['Rating'].tolist()
+  norm_paths = (
+      mb_df['Path_Norm'].tolist()
+      if 'Path_Norm' in mb_df.columns
+      else [uni.sanitize_path_for_matching(p) for p in paths]
+  )
+  for norm_key, path, rating in zip(norm_paths, paths, ratings):
+    existing = lookup.get(norm_key)
+    if existing is None:
+      lookup[norm_key] = {'Path': path, 'Rating': rating, 'count': 1}
+    else:
+      existing['count'] += 1
+  return lookup
 
 
 # =============================================================================
@@ -364,8 +392,8 @@ def main():
   )
   mb_df['Path_Norm'] = mb_df['Path'].apply(uni.sanitize_path_for_matching)
   mb_df = uni.mb_standardize_ratings(mb_df)
+  mb_lookup = build_mb_path_lookup(mb_df)
   print(f'Loaded {len(mb_df)} tracks in {time.time() - t_mb:.2f}s.')
-  mb_grouped = mb_df.groupby('Path_Norm')
 
   # Load Hardcoded Plex Fix Overrides
   plex_fix_keys = load_plex_fix_keys()
@@ -383,7 +411,7 @@ def main():
 
   for i, (plex_key, plex_val) in enumerate(plex_map.items()):
     if i % PLEX_SYNC_LOG_EVERY == 0:
-      print(f'{i/len(plex_map):0.0%} processed...', flush=True)
+      print(f'{i / len(plex_map):0.0%} processed...', flush=True)
     plex_data, plex_path = plex_val['data'], plex_val['pc_path']
     track_title = plex_data.get('title', '')
     rating_key = str(plex_val['ratingKey'])
@@ -393,14 +421,13 @@ def main():
       counters['Metadata: Fixed from Filename'] += 1
 
     # Match Logic
-    if plex_key not in mb_grouped.groups:
+    mb_track_data = mb_lookup.get(plex_key)
+    if mb_track_data is None:
       counters['No Match (Plex Track not in MB)'] += 1
       continue
-    mb_rows = mb_grouped.get_group(plex_key)
-    mb_track_data = mb_rows.iloc[0]
 
     # Duplicate Detection
-    if len(mb_rows) > 1:
+    if mb_track_data['count'] > 1:
       if is_whitelisted(plex_path):
         counters['Match (Duplicate Allowed)'] += 1
       else:
@@ -552,7 +579,7 @@ def main():
       )
       print(f"  -> {fname}: {len(group)} tracks")
 
-  print(f'\nDone in {(time.time() - t_total)/60:0.1f}m.')
+  print(f'\nDone in {(time.time() - t_total) / 60:0.1f}m.')
 
 
 if __name__ == '__main__':
@@ -576,4 +603,3 @@ if __name__ == '__main__':
   if args.no_playlists:
     SYNC_PLAYLISTS = False
   main()
-

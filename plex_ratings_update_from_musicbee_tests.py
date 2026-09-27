@@ -1,12 +1,13 @@
 """Comprehensive unit tests for plex_ratings_update_from_musicbee.py."""
 
-from collections import defaultdict
 import os
 import sys
 import tempfile
 import unittest
-from unittest.mock import MagicMock
-from unittest.mock import patch
+from collections import defaultdict
+from unittest.mock import MagicMock, patch
+
+import pandas as pd
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
@@ -18,8 +19,9 @@ UNIFIED_DIR = os.path.abspath(
 if UNIFIED_DIR not in sys.path:
   sys.path.insert(0, UNIFIED_DIR)
 
-import pandas as pd
+# isort: split
 import plex_ratings_update_from_musicbee as plex_sync
+
 import unify_lib as uni
 
 
@@ -209,7 +211,7 @@ class TestReadMusicBeePlaylistsParameterized(unittest.TestCase):
       counters = defaultdict(int)
 
       playlists = plex_sync.read_musicbee_playlists(
-          tmp_dir, plex_map, counters, verbose=False
+          tmp_dir, plex_map, counters, verbose=False, min_size=1
       )
 
       self.assertIn('Classics', playlists)
@@ -218,6 +220,25 @@ class TestReadMusicBeePlaylistsParameterized(unittest.TestCase):
       self.assertEqual(counters['Playlist Tracks: Found'], 2)
       self.assertEqual(counters['Playlist Tracks: Ignored'], 1)
       self.assertEqual(counters['Playlist Tracks: Missing'], 0)
+
+  def test_skips_small_playlists_below_min_size(self):
+    """Verifies playlists below MIN_PLAYLIST_SIZE are skipped upfront."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+      playlist_path = os.path.join(tmp_dir, 'SmallList.m3u')
+      valid_track = r'B:\Music\Library\Artist\Album\01.flac'
+      with open(playlist_path, 'w', encoding='utf-8') as f:
+        f.write(f'{valid_track}\n')
+
+      key_valid = uni.sanitize_path_for_matching(valid_track)
+      plex_map = {key_valid: {'ratingKey': '111', 'pc_path': valid_track}}
+      counters = defaultdict(int)
+
+      playlists = plex_sync.read_musicbee_playlists(
+          tmp_dir, plex_map, counters, verbose=False
+      )
+
+      self.assertEqual(playlists, {})
+      self.assertEqual(counters['Playlist: Skipped (Too Small)'], 1)
 
 
 class TestRatingSyncLogic(unittest.TestCase):
@@ -306,6 +327,34 @@ class TestWhitelistAndFixOverrides(unittest.TestCase):
 
     normal_path = r'B:\Music\Library\Radiohead\Kid A\01 Everything.flac'
     self.assertFalse(plex_sync.is_whitelisted(normal_path))
+
+  def test_build_mb_path_lookup_matches_groupby_get_group_parity(self):
+    """Verifies O(1) build_mb_path_lookup matches groupby('Path_Norm').iloc[0]."""
+    mb_df = pd.DataFrame([
+        {
+            'Path': r'B:\Music\Library\Radiohead\Kid A [FLAC]\01 Everything.flac',
+            'Rating': 5.0,
+        },
+        {
+            'Path': r'B:\Music\Library\Boards of Canada\BoC Maxima (1996) [CD]\01.flac',
+            'Rating': 4.0,
+        },
+        {
+            'Path': r'B:\Music\Library\Boards of Canada\BoC Maxima (1996) [Cass]\01.flac',
+            'Rating': 3.5,
+        },
+    ])
+    mb_df['Path_Norm'] = mb_df['Path'].apply(uni.sanitize_path_for_matching)
+    lookup = plex_sync.build_mb_path_lookup(mb_df)
+    grouped = mb_df.groupby('Path_Norm')
+
+    self.assertEqual(set(lookup.keys()), set(grouped.groups.keys()))
+    for norm_key, entry in lookup.items():
+      grp = grouped.get_group(norm_key)
+      first_row = grp.iloc[0]
+      self.assertEqual(entry['Path'], first_row['Path'])
+      self.assertEqual(entry['Rating'], first_row['Rating'])
+      self.assertEqual(entry['count'], len(grp))
 
 
 if __name__ == '__main__':

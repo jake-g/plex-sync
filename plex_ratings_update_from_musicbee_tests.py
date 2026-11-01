@@ -392,6 +392,26 @@ class TestWhitelistAndFixOverrides(unittest.TestCase):
       self.assertEqual(entry['Rating'], first_row['Rating'])
       self.assertEqual(entry['count'], len(grp))
 
+  def test_check_mb_match_rate(self):
+    plex_map = {f'k{i}': {} for i in range(10)}
+    cases = [
+        # (matched keys, raises)
+        (10, False),
+        (9, False),   # 10% unmatched is at the limit, allowed
+        (5, True),    # 50% unmatched: broken export
+        (0, True),
+    ]
+    for n_matched, raises in cases:
+      with self.subTest(n_matched=n_matched):
+        lookup = {f'k{i}': {} for i in range(n_matched)}
+        if raises:
+          with self.assertRaisesRegex(RuntimeError, 'refusing to sync'):
+            plex_sync.check_mb_match_rate(plex_map, lookup)
+        else:
+          frac = plex_sync.check_mb_match_rate(plex_map, lookup)
+          self.assertAlmostEqual(frac, (10 - n_matched) / 10)
+    self.assertEqual(plex_sync.check_mb_match_rate({}, {}), 0.0)
+
 
 if __name__ == '__main__':
   unittest.main()

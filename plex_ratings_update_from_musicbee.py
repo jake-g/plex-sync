@@ -57,6 +57,12 @@ MIN_PLAYLIST_SIZE = 15  # Smaller playlists cleaned up
 
 # Execution Modes
 VERBOSE = True  # Output detailed per-track log messages
+# Max 'Multiple matches' warnings printed inline; the rest are summarised.
+# A duplicated MusicBee export once produced 55k of these in a single run.
+MAX_DUPLICATE_WARNINGS = 50
+# Abort before writing to Plex if more than this fraction of Plex tracks have
+# no MusicBee row (normal is <1%; a broken MusicBee export gave 41%).
+PLEX_MAX_UNMATCHED_FRACTION = 0.10
 DRY_RUN = False  # False = Live mode (writes to Plex); True = Preview only
 SYNC_PLAYLISTS = True  # True = Sync playlists to Plex; False = Ratings only
 
@@ -324,6 +330,44 @@ def build_mb_path_lookup(mb_df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
   return lookup
 
 
+def check_mb_match_rate(
+    plex_map: Dict[str, Dict[str, Any]],
+    mb_lookup: Dict[str, Dict[str, Any]],
+) -> float:
+  """Aborts before any Plex writes if the MusicBee export looks wrong.
+
+  Normally well under 1% of Plex tracks lack a MusicBee match. A truncated
+  or duplicated MusicBee export (e.g. the inbox TSV overwritten with the
+  library) drops that to ~60% matched, and the sync would then write
+  ratings to Plex from incomplete data.
+
+  Args:
+    plex_map: Plex tracks keyed by normalized path.
+    mb_lookup: Output of `build_mb_path_lookup`.
+
+  Returns:
+    Fraction of Plex tracks without a MusicBee match.
+
+  Raises:
+    RuntimeError: If the unmatched fraction exceeds
+      `PLEX_MAX_UNMATCHED_FRACTION`.
+  """
+  if not plex_map:
+    return 0.0
+  unmatched = sum(1 for k in plex_map if k not in mb_lookup)
+  fraction = unmatched / len(plex_map)
+  print(f'MusicBee match check: {unmatched} of {len(plex_map)} Plex tracks '
+        f'({fraction:.1%}) have no MusicBee row.')
+  if fraction > PLEX_MAX_UNMATCHED_FRACTION:
+    raise RuntimeError(
+        f'{fraction:.0%} of Plex tracks have no MusicBee match (limit '
+        f'{PLEX_MAX_UNMATCHED_FRACTION:.0%}). The MusicBee export looks '
+        'incomplete or duplicated; refusing to sync ratings to Plex. '
+        'Re-export musicbee_library.tsv / musicbee_inbox.tsv and re-run.'
+    )
+  return fraction
+
+
 # =============================================================================
 # MAIN EXECUTION
 # =============================================================================
@@ -406,6 +450,7 @@ def main():
   # 6. Main Sync Loop (Ratings & Likes)
   export_musicbee_playlists = []
   uni.print_section('SYNCING RATINGS')
+  check_mb_match_rate(plex_map, mb_lookup)
   print(f"Starting Sync... (DRY RUN: {DRY_RUN})")
   t_sync = time.time()
 
@@ -432,8 +477,12 @@ def main():
         counters['Match (Duplicate Allowed)'] += 1
       else:
         counters['Match (Duplicate Warning)'] += 1
-        if VERBOSE:
+        n_dup = counters['Match (Duplicate Warning)']
+        if VERBOSE and n_dup <= MAX_DUPLICATE_WARNINGS:
           print(f"WARN: Multiple matches for {plex_path}")
+          if n_dup == MAX_DUPLICATE_WARNINGS:
+            print(f'WARN: Suppressing further duplicate-match warnings '
+                  f'(see SYNC SUMMARY for the total).')
     else:
       counters['Match Found'] += 1
 
